@@ -1,34 +1,37 @@
+import { TileMove } from '../../core/board/Gravity';
 import { SwapStep } from '../../core/game/TurnStep';
+import { arcTo } from './ArcMotion';
+import { Feel } from './Feel';
 import { playTween, StepAnimator } from './StepAnimator';
 import { TileStage } from './TileStage';
 import { Timings } from './Timings';
 
+/** The two tiles trade places on arcs that pass each other and land with a sparkle. */
 export class SwapAnimator implements StepAnimator<'swap'> {
     readonly type = 'swap';
 
     async play(step: SwapStep, stage: TileStage): Promise<void> {
-        await Promise.all(
-            step.moves.map((move) => {
-                const node = stage.nodeOf(move.tileId);
-                const target = stage.layout.cellCenter(move.to.col, move.to.row);
-                stage.sortByRow(node, move.to.row);
-                stage.bringToFront(node);
-                return Promise.all([
-                    playTween(
-                        node,
-                        cc
-                            .tween(node)
-                            .to(Timings.swap, { position: cc.v3(target.x, target.y, 0) }, { easing: 'sineInOut' }),
-                    ),
-                    playTween(
-                        node,
-                        cc
-                            .tween(node)
-                            .to(Timings.swap / 2, { scale: 1.25 }, { easing: 'sineOut' })
-                            .to(Timings.swap / 2, { scale: 1 }, { easing: 'sineIn' }),
-                    ),
-                ]).then(() => stage.sortByRow(node, move.to.row));
-            }),
-        );
+        stage.sound.play('swap');
+        await Promise.all(step.moves.map((move) => this.fly(move, stage)));
+    }
+
+    private async fly(move: TileMove, stage: TileStage): Promise<void> {
+        const node = stage.nodeOf(move.tileId);
+        const from = stage.layout.cellCenter(move.from.col, move.from.row);
+        const to = stage.layout.cellCenter(move.to.col, move.to.row);
+        const half = Timings.swap / 2;
+        stage.bringToFront(node);
+        await Promise.all([
+            playTween(node, arcTo(node, from, to, Feel.swapArc, Timings.swap)),
+            playTween(
+                node,
+                cc
+                    .tween(node)
+                    .to(half, { scale: Feel.swapScale }, { easing: 'sineOut' })
+                    .to(half, { scale: 1 }, { easing: 'sineIn' }),
+            ),
+        ]);
+        stage.effects.burst(to, null, Feel.swapSparkle);
+        stage.sortByRow(node, move.to.row);
     }
 }

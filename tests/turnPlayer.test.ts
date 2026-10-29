@@ -1,4 +1,5 @@
 import { TurnStep } from '../assets/scripts/core/game/TurnStep';
+import { NoEffects, NoSound } from '../assets/scripts/view/animation/Silent';
 import { StepAnimator, StepType } from '../assets/scripts/view/animation/StepAnimator';
 import { TileStage } from '../assets/scripts/view/animation/TileStage';
 import { TurnPlayer } from '../assets/scripts/view/animation/TurnPlayer';
@@ -24,7 +25,7 @@ class TimedAnimator implements StepAnimator {
     }
 }
 
-const burn: TurnStep = { type: 'burn', waves: [], fromGroup: true };
+const burn: TurnStep = { type: 'burn', waves: [], fromGroup: true, collapseTo: null, points: 0 };
 const fall: TurnStep = { type: 'fall', moves: [] };
 const refill: TurnStep = { type: 'refill', tiles: [] };
 
@@ -35,8 +36,10 @@ describe('TurnPlayer', () => {
     beforeEach(() => {
         jest.useFakeTimers({ now: 0 });
         spans = [];
-        const stage: Pick<TileStage, 'wait'> = {
+        const stage: Pick<TileStage, 'wait' | 'effects' | 'sound'> = {
             wait: (seconds) => new Promise<void>((resolve) => setTimeout(resolve, seconds * 1000)),
+            effects: new NoEffects(),
+            sound: new NoSound(),
         };
         player = new TurnPlayer(stage as TileStage)
             .register(new TimedAnimator('burn', 0.3, spans))
