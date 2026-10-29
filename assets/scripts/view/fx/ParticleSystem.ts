@@ -1,5 +1,5 @@
 import { FxKind } from './FxArt';
-import { DEG_PER_RAD, Easing, linear, quadOut } from './FxMath';
+import { DEG_PER_RAD, Easing, FULL_TURN, linear, quadOut } from './FxMath';
 
 /** A pooled sprite the system moves. The engine side implements it, so the motion itself runs in plain Node. */
 export interface ParticleSprite {
@@ -93,6 +93,8 @@ export function blankSpec(): ParticleSpec {
 
 /** What emitters see of the system. */
 export interface ParticleEmitter {
+    /** Most particles alive at once. */
+    readonly capacity: number;
     /** 0 when empty, 1 when full. */
     readonly load: number;
     /** Copies the spec, so the caller can reuse it. False when the system is full and the particle is dropped. */
@@ -109,8 +111,6 @@ class Particle<S> {
     vy = 0;
     angle = 0;
 }
-
-const TURN = 2 * Math.PI;
 
 /**
  * Fixed-capacity particle simulation. Slots are allocated once and live ones are packed at the front,
@@ -195,7 +195,7 @@ export class ParticleSystem<S extends ParticleSprite> implements ParticleEmitter
         p.x += p.vx * t;
         p.y += p.vy * t;
         if (spec.sway !== 0) {
-            p.x += Math.cos(spec.phase + p.age * spec.flip * TURN) * spec.sway * t;
+            p.x += Math.cos(spec.phase + p.age * spec.flip * FULL_TURN) * spec.sway * t;
         }
         p.angle += spec.spin * t;
         this.render(p);
@@ -215,7 +215,7 @@ export class ParticleSystem<S extends ParticleSprite> implements ParticleEmitter
         }
         let scaleX = scale * spec.stretch;
         if (spec.flip !== 0) {
-            scaleX *= Math.cos(spec.phase + p.age * spec.flip * TURN);
+            scaleX *= Math.cos(spec.phase + p.age * spec.flip * FULL_TURN);
         }
         const angle = spec.alignToVelocity ? Math.atan2(p.vy, p.vx) * DEG_PER_RAD : p.angle;
         (p.sprite as S).place(p.x, p.y, angle, scaleX, scale, opacity);

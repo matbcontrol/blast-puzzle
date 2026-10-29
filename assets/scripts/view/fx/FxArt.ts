@@ -21,8 +21,6 @@ export const FX_TEXTURES: { readonly [K in FxTextureName]: FxTextureSize } = {
     panel: { width: 32, height: 32 },
 };
 
-export const FX_KINDS: ReadonlyArray<FxKind> = ['glow', 'sparkle', 'shard', 'ring', 'confetti', 'streak'];
-
 /** Radius of the bright line of the ring texture: a shockwave scales the ring by radius / RING_RADIUS. */
 export const RING_RADIUS = 54;
 

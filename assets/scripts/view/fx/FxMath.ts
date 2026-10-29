@@ -13,9 +13,22 @@ export const quadOut: Easing = (t) => t * (2 - t);
 export const cubicOut: Easing = (t) => 1 - (1 - t) * (1 - t) * (1 - t);
 
 export const DEG_PER_RAD = 180 / Math.PI;
+export const RAD_PER_DEG = Math.PI / 180;
+export const FULL_TURN = 2 * Math.PI;
+
+/** Unseeded on purpose: effects are decoration, and a ?seed= replay only has to repeat the game. */
+export const effectRandom: Random = { next: () => Math.random() };
 
 export function clamp01(value: number): number {
     return value < 0 ? 0 : value > 1 ? 1 : value;
+}
+
+/** Keeps value in [low, high]. A range too narrow to hold anything gives its middle. */
+export function clampBetween(value: number, low: number, high: number): number {
+    if (low > high) {
+        return (low + high) / 2;
+    }
+    return value < low ? low : value > high ? high : value;
 }
 
 export function lerp(from: number, to: number, t: number): number {
@@ -40,10 +53,7 @@ export function spreadAngle(index: number, count: number, offset: number, jitter
     return offset + (index + 0.5 + (random.next() - 0.5) * jitter) * sector;
 }
 
-/**
- * How many of the wanted particles an effect gets when the system is already this full (0..1).
- * A 90-tile chain then thins every burst a little instead of starving the last ones completely.
- */
+/** How many of the wanted particles a side effect gets when the system is already this full (0..1). */
 export function budgeted(wanted: number, load: number, min: number): number {
     return Math.max(min, Math.round(wanted * (1 - clamp01(load))));
 }

@@ -1,11 +1,12 @@
 import { Point } from '../BoardLayout';
 import { toCcColor } from './FxColors';
+import { FxFeel } from './FxFeel';
 import { uprightDeg } from './FxMath';
-import { FxTuning } from './FxTuning';
 import { RocketFlight } from './RocketFlight';
 
 export interface RocketHeadLook {
-    readonly frame: cc.SpriteFrame;
+    /** Null when the art is missing: the head stays invisible and only the trail shows. */
+    readonly frame: cc.SpriteFrame | null;
     readonly scale: number;
     readonly tint: number;
     /** Art that faces both ways is never turned upside down. */
@@ -20,14 +21,10 @@ export interface RocketTrail {
 interface Flight {
     readonly path: RocketFlight;
     readonly head: cc.Node;
-    readonly land: () => void;
     trailPoints: number;
 }
 
-/**
- * Rocket heads in flight. Stepped by the owner's update, not by tweens: every rocket resolves on the frame
- * it arrives, and landAll() resolves the rest when the owner goes away, so no turn waits forever.
- */
+/** Rocket heads in flight. Stepped by the owner's update instead of tweens, on the same clock as the particles. */
 export class RocketLauncher {
     private readonly flying: Flight[] = [];
     private readonly idleHeads: cc.Node[] = [];
@@ -38,19 +35,17 @@ export class RocketLauncher {
         private readonly trail: RocketTrail,
     ) {}
 
-    launch(from: Point, to: Point, duration: number): Promise<void> {
-        return new Promise<void>((resolve) => {
-            const path = new RocketFlight(from, to, duration);
-            const head = this.idleHeads.length > 0 ? (this.idleHeads.pop() as cc.Node) : this.createHead();
-            head.angle = this.look.upright ? uprightDeg(path.angle) : path.angle;
-            head.setPosition(from.x, from.y);
-            head.opacity = 255;
-            this.flying.push({ path, head, land: resolve, trailPoints: 0 });
-        });
+    launch(from: Point, to: Point, duration: number): void {
+        const path = new RocketFlight(from, to, duration);
+        const head = this.idleHeads.length > 0 ? (this.idleHeads.pop() as cc.Node) : this.createHead();
+        head.angle = this.look.upright ? uprightDeg(path.angle) : path.angle;
+        head.setPosition(from.x, from.y);
+        head.opacity = 255;
+        this.flying.push({ path, head, trailPoints: 0 });
     }
 
     step(dt: number): void {
-        const spacing = FxTuning.rocket.trailSpacing;
+        const spacing = FxFeel.rocket.trailSpacing;
         // Backwards, because a landed flight is swapped with the last one.
         for (let i = this.flying.length - 1; i >= 0; i--) {
             const flight = this.flying[i];
@@ -66,7 +61,8 @@ export class RocketLauncher {
         }
     }
 
-    landAll(): void {
+    /** Hides every head still in flight. */
+    clear(): void {
         while (this.flying.length > 0) {
             this.land(this.flying.length - 1);
         }
@@ -78,7 +74,6 @@ export class RocketLauncher {
         this.flying.pop();
         flight.head.opacity = 0;
         this.idleHeads.push(flight.head);
-        flight.land();
     }
 
     private createHead(): cc.Node {
@@ -86,7 +81,9 @@ export class RocketLauncher {
         const sprite = node.addComponent(cc.Sprite);
         sprite.sizeMode = cc.Sprite.SizeMode.RAW;
         sprite.trim = false;
-        sprite.spriteFrame = this.look.frame;
+        if (this.look.frame !== null) {
+            sprite.spriteFrame = this.look.frame;
+        }
         node.color = toCcColor(this.look.tint);
         node.setScale(this.look.scale);
         node.parent = this.layer;

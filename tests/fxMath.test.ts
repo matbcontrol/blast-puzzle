@@ -1,5 +1,5 @@
 import { SeededRandom } from '../assets/scripts/core/random/SeededRandom';
-import { budgeted, logLerp, mixColor, spreadAngle, uprightDeg } from '../assets/scripts/view/fx/FxMath';
+import { budgeted, clampBetween, logLerp, mixColor, spreadAngle, uprightDeg } from '../assets/scripts/view/fx/FxMath';
 import { RocketFlight } from '../assets/scripts/view/fx/RocketFlight';
 
 describe('fx math', () => {
@@ -19,6 +19,13 @@ describe('fx math', () => {
         expect(budgeted(14, 0.5, 2)).toBe(7);
         expect(budgeted(14, 0.95, 2)).toBe(2);
         expect(budgeted(3, 1, 0)).toBe(0);
+    });
+
+    it('clamps into a range, and to its middle when the range is too narrow', () => {
+        expect(clampBetween(5, 0, 10)).toBe(5);
+        expect(clampBetween(-5, 0, 10)).toBe(0);
+        expect(clampBetween(15, 0, 10)).toBe(10);
+        expect(clampBetween(3, 10, -10)).toBe(0);
     });
 
     it('mixes colors channel by channel', () => {
