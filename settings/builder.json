@@ -1,0 +1,9 @@
+{
+  "excludeScenes": [],
+  "startScene": "c8c3dba8-a4c2-4cfe-b9f1-eed81afa89e2",
+  "title": "Blast Puzzle",
+  "packageName": "org.cocos2d.blastpuzzle",
+  "webOrientation": "auto",
+  "inlineSpriteFrames": true,
+  "md5Cache": true
+}
