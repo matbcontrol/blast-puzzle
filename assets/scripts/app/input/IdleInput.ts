@@ -1,30 +1,38 @@
 import { GridPos } from '../../core/board/GridPos';
-import { InputContext, InputState } from './InputState';
+import { CellRelease, isTap } from '../CellRelease';
+import { InputCommands, InputCues, InputQueries, InputState } from './InputState';
 
 export class IdleInput implements InputState {
     readonly offersHint = true;
+    readonly acceptsTaps = true;
 
-    constructor(private readonly ctx: InputContext) {}
+    constructor(
+        private readonly commands: InputCommands,
+        private readonly queries: InputQueries,
+        private readonly cues: InputCues,
+    ) {}
 
-    enter(): void {
-        this.ctx.selectBooster(null);
-        this.ctx.markTargets([]);
-        this.ctx.showBoosterPreview([]);
+    enter(): void {}
+
+    exit(): void {
+        this.cues.showTapPreview([]);
     }
 
-    onCellTapped(cell: GridPos): void {
-        this.ctx.tap(cell);
+    onCellReleased(release: CellRelease): void {
+        if (isTap(release)) {
+            this.commands.tap(release.released);
+        }
     }
 
     onCellPointed(cell: GridPos | null): void {
-        this.ctx.showTapPreview(cell === null ? [] : this.ctx.tapPreview(cell));
+        this.cues.showTapPreview(cell === null ? [] : this.queries.tapPreview(cell));
     }
 
     onBoosterPressed(id: string): void {
-        if (this.ctx.boosterCharges(id) > 0) {
-            this.ctx.enterAiming(id);
+        if (this.queries.boosterCharges(id) > 0) {
+            this.commands.enterAiming(id);
         } else {
-            this.ctx.rejectBooster(id);
+            this.cues.rejectBooster(id);
         }
     }
 }

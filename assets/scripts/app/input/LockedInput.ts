@@ -1,12 +1,15 @@
 import { InputState } from './InputState';
 
-/** Swallows input while the level is announced, a turn is animating or the level is over. */
+/** Swallows input during the bonus round, under the result panel and once the controller is disposed. */
 export class LockedInput implements InputState {
     readonly offersHint = false;
+    readonly acceptsTaps = false;
 
     enter(): void {}
 
-    onCellTapped(): void {}
+    exit(): void {}
+
+    onCellReleased(): void {}
 
     onCellPointed(): void {}
 

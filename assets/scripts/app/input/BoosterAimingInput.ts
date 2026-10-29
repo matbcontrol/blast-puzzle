@@ -1,5 +1,6 @@
 import { GridPos, samePos } from '../../core/board/GridPos';
-import { InputContext, InputState } from './InputState';
+import { CellRelease } from '../CellRelease';
+import { InputCommands, InputCues, InputQueries, InputState } from './InputState';
 
 /**
  * Collects as many cells as the booster asks for, then fires it.
@@ -7,47 +8,67 @@ import { InputContext, InputState } from './InputState';
  */
 export class BoosterAimingInput implements InputState {
     readonly offersHint = false;
+    readonly acceptsTaps = true;
     private readonly targets: GridPos[] = [];
 
     constructor(
-        private readonly ctx: InputContext,
+        private readonly commands: InputCommands,
+        private readonly queries: InputQueries,
+        private readonly cues: InputCues,
         private readonly boosterId: string,
     ) {}
 
     enter(): void {
-        this.ctx.selectBooster(this.boosterId);
-        this.ctx.markTargets([]);
-        this.ctx.showTapPreview([]);
+        this.cues.selectBooster(this.boosterId);
     }
 
-    onCellTapped(cell: GridPos): void {
+    exit(): void {
+        this.cues.selectBooster(null);
+        this.cues.showTargets([]);
+        this.cues.showBoosterPreview([]);
+    }
+
+    /** The pick is where the finger comes up, so a slide under the preview glow corrects the aim. */
+    onCellReleased(release: CellRelease): void {
+        const cell = release.released;
         const last = this.targets[this.targets.length - 1];
         if (last !== undefined && samePos(last, cell)) {
             this.targets.pop();
-            this.ctx.markTargets(this.targets);
+            this.cues.showTargets(this.targets);
             return;
         }
 
         this.targets.push(cell);
-        if (this.targets.length < this.ctx.boosterTargetCount(this.boosterId)) {
-            this.ctx.markTargets(this.targets);
+        if (this.targets.length < this.queries.boosterTargetCount(this.boosterId)) {
+            this.cues.showTargets(this.targets);
             return;
         }
-        this.ctx.useBooster(this.boosterId, this.targets.slice());
+        if (!this.commands.useBooster(this.boosterId, this.targets.slice())) {
+            // Only the last pick was refused: the ones before it stand, and aiming goes on.
+            this.targets.pop();
+            this.cues.showTargets(this.targets);
+        }
     }
 
     onCellPointed(cell: GridPos | null): void {
-        this.ctx.showBoosterPreview(cell === null ? [] : this.ctx.boosterPreview(this.boosterId, cell));
+        if (cell === null) {
+            this.cues.showBoosterPreview([]);
+            return;
+        }
+        // Over the last pick a release takes it back, so the preview shows that cell as a fresh pick.
+        const last = this.targets[this.targets.length - 1];
+        const picked = last !== undefined && samePos(last, cell) ? this.targets.slice(0, -1) : this.targets;
+        this.cues.showBoosterPreview(this.queries.boosterPreview(this.boosterId, picked, cell));
     }
 
     /** The same booster again cancels aiming. An empty one is refused, and aiming goes on. */
     onBoosterPressed(id: string): void {
         if (id === this.boosterId) {
-            this.ctx.enterIdle();
-        } else if (this.ctx.boosterCharges(id) <= 0) {
-            this.ctx.rejectBooster(id);
+            this.commands.enterIdle();
+        } else if (this.queries.boosterCharges(id) <= 0) {
+            this.cues.rejectBooster(id);
         } else {
-            this.ctx.enterAiming(id);
+            this.commands.enterAiming(id);
         }
     }
 }
