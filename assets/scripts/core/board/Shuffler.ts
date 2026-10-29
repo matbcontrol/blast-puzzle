@@ -3,7 +3,7 @@ import { GroupRules } from '../rules/GroupRules';
 import { Tile, TileColor } from '../tiles/Tile';
 import { Board } from './Board';
 import { TileMove } from './Gravity';
-import { GridPos, gridPos, posKey, samePos } from './GridPos';
+import { GridPos, gridPos, posKey } from './GridPos';
 
 /**
  * Random shuffle that always leaves the player a move.
@@ -15,6 +15,7 @@ export class Shuffler {
         private readonly rules: GroupRules,
     ) {}
 
+    /** Reports every tile, also one that landed where it was: on screen the whole board takes part. */
     shuffle(board: Board): TileMove[] {
         const before = this.positionsById(board);
 
@@ -103,7 +104,7 @@ export class Shuffler {
         for (const to of board.positions()) {
             const tile = board.tileAt(to);
             const from = tile === null ? undefined : before.get(tile.id);
-            if (tile !== null && from !== undefined && !samePos(from, to)) {
+            if (tile !== null && from !== undefined) {
                 moves.push({ tileId: tile.id, from, to });
             }
         }

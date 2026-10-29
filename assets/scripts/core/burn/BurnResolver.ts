@@ -10,12 +10,16 @@ export interface BurnedTile {
 
 export interface BurnWave {
     readonly origin: GridPos;
+    /** What fired the wave: a super tile kind or a booster id. null for a tapped color group. */
+    readonly blast: string | null;
     readonly tiles: ReadonlyArray<BurnedTile>;
 }
 
 interface PendingWave {
     readonly origin: GridPos;
+    readonly blast: string | null;
     readonly cells: GridPos[];
+    /** A super tile that started this wave is consumed without firing again. */
     readonly sourceTileId: number | null;
 }
 
@@ -32,13 +36,17 @@ export class BurnResolver {
         if (tile === null || !tile.isSuper) {
             throw new Error(`No super tile at ${at.col}:${at.row}`);
         }
-        return this.burn(board, at, this.blastOf(tile, board, at), tile.id);
+        return this.resolve(board, this.waveOf(tile, board, at));
     }
 
-    /** @param sourceTileId super tile that started the burn: it is consumed without firing again. */
-    burn(board: Board, origin: GridPos, cells: GridPos[], sourceTileId: number | null = null): BurnWave[] {
+    /** @param blast the booster that burns these cells, or null for a tapped color group. */
+    burn(board: Board, origin: GridPos, cells: GridPos[], blast: string | null = null): BurnWave[] {
+        return this.resolve(board, { origin, blast, cells, sourceTileId: null });
+    }
+
+    private resolve(board: Board, first: PendingWave): BurnWave[] {
         const waves: BurnWave[] = [];
-        const pending: PendingWave[] = [{ origin, cells, sourceTileId }];
+        const pending: PendingWave[] = [first];
 
         while (pending.length > 0) {
             const wave = pending.shift() as PendingWave;
@@ -51,15 +59,17 @@ export class BurnResolver {
                 board.put(at, null);
                 burned.push({ tile, at });
                 if (tile.isSuper && tile.id !== wave.sourceTileId) {
-                    pending.push({ origin: at, cells: this.blastOf(tile, board, at), sourceTileId: tile.id });
+                    pending.push(this.waveOf(tile, board, at));
                 }
             }
-            waves.push({ origin: wave.origin, tiles: burned });
+            waves.push({ origin: wave.origin, blast: wave.blast, tiles: burned });
         }
         return waves;
     }
 
-    private blastOf(superTile: Tile, board: Board, at: GridPos): GridPos[] {
-        return this.catalog.areaFor(superTile.requireSuperKind()).cellsAround(board, at);
+    private waveOf(superTile: Tile, board: Board, at: GridPos): PendingWave {
+        const kind = superTile.requireSuperKind();
+        const cells = this.catalog.areaFor(kind).cellsAround(board, at);
+        return { origin: at, blast: kind, cells, sourceTileId: superTile.id };
     }
 }

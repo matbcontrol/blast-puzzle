@@ -1,6 +1,6 @@
 import { Board, ReadonlyBoard } from '../board/Board';
 import { GridPos, samePos } from '../board/GridPos';
-import { TurnStep } from '../game/TurnStep';
+import { ActionStep } from '../game/TurnStep';
 import { Tile } from '../tiles/Tile';
 import { PlayerAction } from './PlayerAction';
 
@@ -17,7 +17,7 @@ export class SwapAction implements PlayerAction {
         return !samePos(this.a, this.b) && first !== null && second !== null && !first.looksLike(second);
     }
 
-    apply(board: Board): TurnStep[] {
+    apply(board: Board): ActionStep[] {
         if (!this.canApply(board)) {
             throw new Error('Nothing to swap between the chosen cells');
         }

@@ -1,7 +1,7 @@
 import { Board, ReadonlyBoard } from '../board/Board';
 import { GridPos } from '../board/GridPos';
 import { BurnResolver } from '../burn/BurnResolver';
-import { TurnStep } from '../game/TurnStep';
+import { ActionStep } from '../game/TurnStep';
 import { GroupRules } from '../rules/GroupRules';
 import { SuperTilePicker } from '../tiles/SuperTilePicker';
 import { TileFactory } from '../tiles/TileFactory';
@@ -20,21 +20,23 @@ export class BurnGroupAction implements PlayerAction {
         return this.rules.burnableGroupAt(board, this.origin) !== null;
     }
 
-    apply(board: Board): TurnStep[] {
+    apply(board: Board): ActionStep[] {
         const group = this.rules.burnableGroupAt(board, this.origin);
         if (group === null) {
             throw new Error('No burnable group at the tapped cell');
         }
 
         const waves = this.burner.burn(board, this.origin, group);
-        const steps: TurnStep[] = [{ type: 'burn', waves, fromGroup: true }];
-
         const kind = this.superTiles.pick(group.length);
-        if (kind !== null) {
-            const tile = this.tiles.createSuper(kind);
-            board.put(this.origin, tile);
-            steps.push({ type: 'superCreated', tile, at: this.origin });
+        if (kind === null) {
+            return [{ type: 'burn', waves, fromGroup: true, collapseTo: null }];
         }
-        return steps;
+
+        const tile = this.tiles.createSuper(kind);
+        board.put(this.origin, tile);
+        return [
+            { type: 'burn', waves, fromGroup: true, collapseTo: this.origin },
+            { type: 'superCreated', tile, at: this.origin },
+        ];
     }
 }

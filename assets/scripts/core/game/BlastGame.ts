@@ -3,12 +3,12 @@ import { TapActionFactory } from '../actions/TapActionFactory';
 import { Board, ReadonlyBoard } from '../board/Board';
 import { BoardFiller } from '../board/BoardFiller';
 import { dropTiles } from '../board/Gravity';
-import { GridPos } from '../board/GridPos';
+import { GridPos, posKey } from '../board/GridPos';
 import { BoosterInventory } from '../boosters/BoosterInventory';
 import { AutoShuffle } from '../rules/AutoShuffle';
 import { GroupRules } from '../rules/GroupRules';
 import { LevelProgress, ProgressSnapshot } from '../rules/LevelProgress';
-import { TurnStep } from './TurnStep';
+import { ActionStep, TurnStep } from './TurnStep';
 
 export interface TurnResult {
     readonly steps: ReadonlyArray<TurnStep>;
@@ -55,6 +55,27 @@ export class BlastGame {
         return this.boosters.get(id).targetCount;
     }
 
+    /** The cells a tap here would burn: the group, or a super tile alone. Empty when the tap does nothing. */
+    tapPreview(at: GridPos): GridPos[] {
+        const tile = this.board.tileAt(at);
+        if (this.progress.status !== 'playing' || tile === null) {
+            return [];
+        }
+        if (tile.isSuper) {
+            return [at];
+        }
+        return this.rules.burnableGroupAt(this.board, at) || [];
+    }
+
+    boosterPreview(id: string, at: GridPos): GridPos[] {
+        return this.boosters.get(id).previewCells(this.board, at);
+    }
+
+    /** A move to suggest to a player who hesitates: any super tile, else the biggest group. Null without a move. */
+    hint(): GridPos[] | null {
+        return this.progress.status === 'playing' ? bestMove(this.board, this.rules) : null;
+    }
+
     /** Returns null when the tap does nothing: an empty cell, a lonely tile, or the game is over. */
     tap(at: GridPos): TurnResult | null {
         return this.play(this.tapActions.create(this.board, at), true);
@@ -81,14 +102,17 @@ export class BlastGame {
             return null;
         }
 
-        const steps = action.apply(this.board);
-        const scoreGained = this.progress.addScore(steps);
+        const steps = action.apply(this.board).map((step) => this.scored(step));
         if (spendsMove) {
             this.progress.spendMove();
         }
         this.settle(steps);
 
-        return { steps, scoreGained, progress: this.progress.snapshot() };
+        return { steps, scoreGained: totalPoints(steps), progress: this.progress.snapshot() };
+    }
+
+    private scored(step: ActionStep): TurnStep {
+        return step.type === 'burn' ? this.progress.scoreBurn(step) : step;
     }
 
     private settle(steps: TurnStep[]): void {
@@ -111,4 +135,30 @@ export class BlastGame {
             steps.push({ type: 'shuffle', moves: shuffled });
         }
     }
+}
+
+function totalPoints(steps: ReadonlyArray<TurnStep>): number {
+    return steps.reduce((sum, step) => sum + (step.type === 'burn' ? step.points : 0), 0);
+}
+
+function bestMove(board: ReadonlyBoard, rules: GroupRules): GridPos[] | null {
+    let best: GridPos[] | null = null;
+    const counted = new Set<string>();
+    for (const p of board.positions()) {
+        const tile = board.tileAt(p);
+        if (tile === null || counted.has(posKey(p))) {
+            continue;
+        }
+        if (tile.isSuper) {
+            return [p];
+        }
+        const group = rules.burnableGroupAt(board, p);
+        if (group !== null) {
+            group.forEach((member) => counted.add(posKey(member)));
+            if (best === null || group.length > best.length) {
+                best = group;
+            }
+        }
+    }
+    return best;
 }

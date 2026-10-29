@@ -1,7 +1,7 @@
-import { BurnStep } from '../game/TurnStep';
+import { BurnOutcome } from '../game/TurnStep';
 
 export interface ScoreFormula {
-    pointsFor(step: BurnStep): number;
+    pointsFor(burn: BurnOutcome): number;
 }
 
 /**
@@ -12,11 +12,11 @@ export interface ScoreFormula {
 export class BlastScore implements ScoreFormula {
     constructor(private readonly pointsPerTile: number) {}
 
-    pointsFor(step: BurnStep): number {
+    pointsFor(burn: BurnOutcome): number {
         let points = 0;
-        step.waves.forEach((wave, i) => {
+        burn.waves.forEach((wave, i) => {
             const n = wave.tiles.length;
-            const units = i === 0 && step.fromGroup ? (n * (n + 1)) / 2 : n;
+            const units = i === 0 && burn.fromGroup ? (n * (n + 1)) / 2 : n;
             points += units * this.pointsPerTile;
         });
         return points;

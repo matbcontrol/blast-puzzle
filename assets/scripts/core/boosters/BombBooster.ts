@@ -1,5 +1,6 @@
 import { AreaBurnAction } from '../actions/AreaBurnAction';
 import { PlayerAction } from '../actions/PlayerAction';
+import { ReadonlyBoard } from '../board/Board';
 import { GridPos } from '../board/GridPos';
 import { BurnArea } from '../burn/BurnArea';
 import { BurnResolver } from '../burn/BurnResolver';
@@ -15,6 +16,10 @@ export class BombBooster implements Booster {
     ) {}
 
     createAction(targets: ReadonlyArray<GridPos>): PlayerAction {
-        return new AreaBurnAction(targets[0], this.area, this.burner);
+        return new AreaBurnAction(targets[0], this.area, this.burner, this.id);
+    }
+
+    previewCells(board: ReadonlyBoard, target: GridPos): GridPos[] {
+        return board.contains(target) ? this.area.cellsAround(board, target) : [];
     }
 }

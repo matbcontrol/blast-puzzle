@@ -42,13 +42,14 @@ describe('Shuffler', () => {
         }
     });
 
-    it('reports moves that describe the new layout', () => {
+    it('reports where every tile went, the ones that stayed included', () => {
         const board = deadBoard();
         const idsBefore = new Map<number, string>();
         board.positions().forEach((p) => idsBefore.set(board.tileAt(p)!.id, `${p.col}:${p.row}`));
 
         const moves = new Shuffler(new SeededRandom(7), new GroupRules(2)).shuffle(board);
 
+        expect(moves).toHaveLength(idsBefore.size);
         for (const move of moves) {
             expect(idsBefore.get(move.tileId)).toBe(`${move.from.col}:${move.from.row}`);
             expect(board.tileAt(move.to)!.id).toBe(move.tileId);

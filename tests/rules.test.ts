@@ -1,18 +1,19 @@
 import { parseLevelConfig } from '../assets/scripts/core/config/parseLevelConfig';
 import { LevelProgress } from '../assets/scripts/core/rules/LevelProgress';
 import { gridPos } from '../assets/scripts/core/board/GridPos';
-import { BurnStep } from '../assets/scripts/core/game/TurnStep';
+import { BurnOutcome } from '../assets/scripts/core/game/TurnStep';
 import { BlastScore } from '../assets/scripts/core/rules/ScoreFormula';
 import { Tile } from '../assets/scripts/core/tiles/Tile';
 import { SuperTilePicker } from '../assets/scripts/core/tiles/SuperTilePicker';
 import { alwaysRed, testConfig } from './helpers/fixtures';
 
-function burn(fromGroup: boolean, ...waveSizes: number[]): BurnStep {
-    const waves = waveSizes.map((size) => ({
+function burn(fromGroup: boolean, ...waveSizes: number[]): BurnOutcome {
+    const waves = waveSizes.map((size, i) => ({
         origin: gridPos(0, 0),
-        tiles: Array.from({ length: size }, (_, i) => ({ tile: Tile.ofColor(i, 0), at: gridPos(i, 0) })),
+        blast: i === 0 && fromGroup ? null : 'bomb',
+        tiles: Array.from({ length: size }, (_, k) => ({ tile: Tile.ofColor(k, 0), at: gridPos(k, 0) })),
     }));
-    return { type: 'burn', waves, fromGroup };
+    return { type: 'burn', waves, fromGroup, collapseTo: null };
 }
 
 describe('BlastScore', () => {
@@ -33,9 +34,20 @@ describe('BlastScore', () => {
 describe('LevelProgress', () => {
     const progress = (target: number, moves: number) => new LevelProgress(target, moves, new BlastScore(10));
 
+    it('stamps every burn with the points it added to the score', () => {
+        const level = progress(1000, 5);
+
+        const first = level.scoreBurn(burn(true, 5));
+        const second = level.scoreBurn(burn(false, 3, 4));
+
+        expect([first.points, second.points]).toEqual([150, 70]);
+        expect(level.snapshot().score).toBe(first.points + second.points);
+        expect(second.waves).toHaveLength(2);
+    });
+
     it('prefers a win over running out of moves', () => {
         const level = progress(30, 1);
-        level.addScore([burn(true, 2)]);
+        level.scoreBurn(burn(true, 2));
         level.spendMove();
         expect(level.snapshot()).toMatchObject({ status: 'won', loseReason: null, movesLeft: 0 });
     });

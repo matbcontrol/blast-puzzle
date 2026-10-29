@@ -9,13 +9,21 @@ import { SuperTileCatalog } from '../assets/scripts/core/burn/SuperTileCatalog';
 import { LevelConfig } from '../assets/scripts/core/config/LevelConfig';
 import { createBlastGame } from '../assets/scripts/core/game/BlastGameFactory';
 import { TurnResult } from '../assets/scripts/core/game/BlastGame';
-import { TurnStep } from '../assets/scripts/core/game/TurnStep';
+import { BurnStep, TurnStep } from '../assets/scripts/core/game/TurnStep';
 import { SeededRandom } from '../assets/scripts/core/random/SeededRandom';
 import { GroupRules } from '../assets/scripts/core/rules/GroupRules';
 import { boardFromText, boardToText } from './helpers/boardText';
 import { alwaysRed, ScriptedRandom, testConfig } from './helpers/fixtures';
 
 const stepTypes = (result: TurnResult | null) => result!.steps.map((s: TurnStep) => s.type);
+
+function burnOf(result: TurnResult | null): BurnStep {
+    const step = result!.steps[0];
+    if (step.type !== 'burn') {
+        throw new Error(`Expected a burn first, got "${step.type}"`);
+    }
+    return step;
+}
 
 function gameOn(lines: string[], overrides: Partial<LevelConfig> = {}, random = alwaysRed()) {
     const config = testConfig({ cols: lines[0].length, rows: lines.length, ...overrides });
@@ -38,6 +46,16 @@ describe('BlastGame: tapping', () => {
         expect(result!.progress.movesLeft).toBe(9);
     });
 
+    it('reports a plain group burn with its points and no super tile', () => {
+        const game = gameOn(['GBY', 'RRB', 'YGY']);
+
+        const burn = burnOf(game.tap(gridPos(0, 1)));
+
+        expect(burn.points).toBe(30);
+        expect(burn.collapseTo).toBeNull();
+        expect(burn.waves.map((w) => w.blast)).toEqual([null]);
+    });
+
     it('ignores a lonely tile and does not spend a move', () => {
         const game = gameOn(['RG', 'GR', 'BB']);
 
@@ -52,6 +70,7 @@ describe('BlastGame: tapping', () => {
 
         expect(stepTypes(result)).toEqual(['burn', 'superCreated', 'refill']);
         expect(game.currentBoard.tileAt(gridPos(1, 1))!.superKind).toBe('column');
+        expect(burnOf(result).collapseTo).toEqual(gridPos(1, 1));
     });
 
     it('fires a super tile on tap and spends a move', () => {
@@ -61,6 +80,19 @@ describe('BlastGame: tapping', () => {
 
         expect(result!.scoreGained).toBe(40);
         expect(result!.progress.movesLeft).toBe(9);
+        expect(burnOf(result).points).toBe(40);
+        expect(burnOf(result).waves.map((w) => w.blast)).toEqual(['row']);
+    });
+
+    it('adds up to the score exactly what the burn steps report, chain reactions included', () => {
+        const game = gameOn(['GBYG', 'Y-B|', 'BGRB'], { targetScore: 10_000 });
+
+        const result = game.tap(gridPos(1, 1));
+        const burn = burnOf(result);
+
+        expect(burn.waves.map((w) => w.blast)).toEqual(['row', 'column']);
+        expect(burn.points).toBe(result!.scoreGained);
+        expect(result!.progress.score).toBe(burn.points);
     });
 });
 
@@ -71,6 +103,7 @@ describe('BlastGame: boosters', () => {
         const result = game.useBooster('bomb', [gridPos(1, 1)]);
 
         expect(result!.scoreGained).toBe(90);
+        expect(burnOf(result).waves.map((w) => w.blast)).toEqual(['bomb']);
         expect(result!.progress.movesLeft).toBe(10);
         expect(game.boosterCharges('bomb')).toBe(0);
         expect(game.useBooster('bomb', [gridPos(1, 1)])).toBeNull();
@@ -120,7 +153,7 @@ describe('PlayerAction', () => {
         const board = boardFromText(['RR', 'GB']);
         const refused: PlayerAction[] = [
             new SwapAction(gridPos(0, 1), gridPos(1, 1)),
-            new AreaBurnAction(gridPos(2, 0), new RadiusArea(1), burner),
+            new AreaBurnAction(gridPos(2, 0), new RadiusArea(1), burner, 'bomb'),
             new ActivateSuperAction(gridPos(0, 0), burner),
         ];
 
@@ -192,5 +225,60 @@ describe('createBlastGame', () => {
     it('rejects a config that references an unknown super tile', () => {
         const broken = testConfig({ superTiles: [{ minGroupSize: 5, kinds: ['rainbow'] }] });
         expect(() => createBlastGame(broken, new SeededRandom(1))).toThrow('unknown super tile "rainbow"');
+    });
+});
+
+describe('BlastGame: hints and previews', () => {
+    it('hints the biggest group', () => {
+        const game = gameOn([
+            'RRGB', //
+            'YGGB',
+            'YGBY',
+        ]);
+
+        const hint = game.hint()!;
+
+        expect(hint).toHaveLength(4);
+        expect(hint).toEqual(expect.arrayContaining([gridPos(2, 2), gridPos(1, 1), gridPos(2, 1), gridPos(1, 0)]));
+    });
+
+    it('hints a super tile before any group', () => {
+        const game = gameOn(['RRRB', 'YG*Y']);
+
+        expect(game.hint()).toEqual([gridPos(2, 0)]);
+    });
+
+    it('hints nothing once the level is over', () => {
+        const game = gameOn(['RRB', 'GBG'], { targetScore: 30 });
+        game.tap(gridPos(0, 1));
+
+        expect(game.hint()).toBeNull();
+    });
+
+    it('previews the group a tap would burn, a super tile alone, and nothing for a lonely tile', () => {
+        const game = gameOn(['RRB', 'G-Y']);
+
+        expect(game.tapPreview(gridPos(1, 1))).toEqual(expect.arrayContaining([gridPos(0, 1), gridPos(1, 1)]));
+        expect(game.tapPreview(gridPos(1, 0))).toEqual([gridPos(1, 0)]);
+        expect(game.tapPreview(gridPos(2, 1))).toEqual([]);
+        expect(game.tapPreview(gridPos(5, 5))).toEqual([]);
+    });
+
+    it('previews the square of the bomb, clipped by the board edge', () => {
+        const game = gameOn(['GBY', 'YGB', 'BYG']);
+
+        expect(game.boosterPreview('bomb', gridPos(1, 1))).toHaveLength(9);
+        expect(game.boosterPreview('bomb', gridPos(0, 0))).toEqual(
+            expect.arrayContaining([gridPos(0, 0), gridPos(1, 0), gridPos(0, 1), gridPos(1, 1)]),
+        );
+        expect(game.boosterPreview('bomb', gridPos(0, 0))).toHaveLength(4);
+        expect(game.boosterPreview('bomb', gridPos(3, 0))).toEqual([]);
+    });
+
+    it('previews the one tile a teleport would pick', () => {
+        const game = gameOn(['RG', 'GB']);
+
+        expect(game.boosterPreview('teleport', gridPos(0, 1))).toEqual([gridPos(0, 1)]);
+        expect(game.boosterPreview('teleport', gridPos(2, 1))).toEqual([]);
     });
 });

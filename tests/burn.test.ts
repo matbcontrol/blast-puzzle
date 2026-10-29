@@ -44,6 +44,7 @@ describe('BurnResolver', () => {
         expect(boardToText(board)).toEqual(['..G', 'BBB']);
         expect(waves).toHaveLength(1);
         expect(waves[0].tiles).toHaveLength(2);
+        expect(waves[0].blast).toBeNull();
     });
 
     it('chains into super tiles caught in the blast', () => {
@@ -61,21 +62,15 @@ describe('BurnResolver', () => {
 
         expect(boardToText(board)).toEqual(['..RR', '....', 'BBBB']);
         expect(waves.map((w) => posKey(w.origin))).toEqual(['0:2', '1:1']);
+        expect(waves.map((w) => w.blast)).toEqual([null, 'row']);
     });
 
-    it('does not fire the source tile twice and stops when supers hit each other', () => {
-        const board = boardFromText(['-|', 'RG']);
-        const row = board.tileAt(gridPos(0, 1))!;
+    it('names the booster that fired the area in the first wave', () => {
+        const board = boardFromText(['R|G', 'BBB']);
 
-        const waves = new BurnResolver(catalog()).burn(
-            board,
-            gridPos(0, 1),
-            new RowArea().cellsAround(board, gridPos(0, 1)),
-            row.id,
-        );
+        const waves = new BurnResolver(catalog()).burn(board, gridPos(0, 1), [gridPos(0, 1), gridPos(1, 1)], 'bomb');
 
-        expect(waves.map((w) => posKey(w.origin))).toEqual(['0:1', '1:1']);
-        expect(boardToText(board)).toEqual(['..', 'R.']);
+        expect(waves.map((w) => w.blast)).toEqual(['bomb', 'column']);
     });
 });
 
@@ -92,6 +87,17 @@ describe('BurnResolver.detonate', () => {
         expect(boardToText(board)).toEqual(['R.BY', 'G.YB', 'B.RG']);
         expect(waves).toHaveLength(1);
         expect(posKey(waves[0].origin)).toBe('1:1');
+        expect(waves[0].blast).toBe('column');
+    });
+
+    it('does not fire the source tile twice and stops when supers hit each other', () => {
+        const board = boardFromText(['-|', 'RG']);
+
+        const waves = new BurnResolver(catalog()).detonate(board, gridPos(0, 1));
+
+        expect(waves.map((w) => posKey(w.origin))).toEqual(['0:1', '1:1']);
+        expect(waves.map((w) => w.blast)).toEqual(['row', 'column']);
+        expect(boardToText(board)).toEqual(['..', 'R.']);
     });
 
     it('burns the source tile once without firing it again', () => {
