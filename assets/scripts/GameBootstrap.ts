@@ -5,10 +5,17 @@ import { LevelConfig } from './core/config/LevelConfig';
 import { parseLevelConfig } from './core/config/parseLevelConfig';
 import { createBlastGame } from './core/game/BlastGameFactory';
 import { SeededRandom } from './core/random/SeededRandom';
+import { MuteButton } from './view/audio/MuteButton';
+import { SoundBank } from './view/audio/SoundBank';
+import { SoundBoard } from './view/audio/SoundBoard';
 import { BoardView } from './view/BoardView';
 import { BoosterPanel } from './view/BoosterPanel';
+import { BoardEffects } from './view/fx/BoardEffects';
+import { EffectsLayer } from './view/fx/EffectsLayer';
 import { HudView } from './view/HudView';
+import { LevelBanner } from './view/LevelBanner';
 import { ResultPopup } from './view/ResultPopup';
+import { SchedulerClock } from './view/SchedulerClock';
 
 const { ccclass, property } = cc._decorator;
 
@@ -33,11 +40,24 @@ export class GameBootstrap extends cc.Component {
     @property(ResultPopup)
     result: ResultPopup = null!;
 
+    @property(LevelBanner)
+    banner: LevelBanner = null!;
+
+    @property(EffectsLayer)
+    effects: EffectsLayer = null!;
+
+    @property(SoundBank)
+    sound: SoundBank = null!;
+
+    @property(MuteButton)
+    mute: MuteButton = null!;
+
     private controller: GameController | null = null;
 
     start(): void {
         const config = parseLevelConfig(this.level.json);
         this.checkScene(config);
+        this.wirePresentation(this.effects, this.sound);
 
         const seeds = new SeedSequence(seedFromUrl(), config.seed);
         this.controller = new GameController(
@@ -46,7 +66,8 @@ export class GameBootstrap extends cc.Component {
                 cc.log(`Blast: seed ${seed}, replay with ?seed=${seed}`);
                 return createBlastGame(config, new SeededRandom(seed));
             },
-            { board: this.board, hud: this.hud, boosters: this.boosters, result: this.result },
+            { board: this.board, hud: this.hud, boosters: this.boosters, result: this.result, banner: this.banner },
+            new SchedulerClock(this),
         );
         this.controller.start();
     }
@@ -55,6 +76,15 @@ export class GameBootstrap extends cc.Component {
         if (this.controller !== null) {
             this.controller.dispose();
         }
+    }
+
+    /** The views get effects and sound by their interfaces, so none of them knows the components behind. */
+    private wirePresentation(effects: BoardEffects, sound: SoundBoard): void {
+        this.board.setPresentation(effects, sound);
+        this.boosters.setSound(sound);
+        this.result.setSound(sound);
+        this.result.setEffects(effects);
+        this.mute.setSound(sound);
     }
 
     private checkScene(config: LevelConfig): void {
