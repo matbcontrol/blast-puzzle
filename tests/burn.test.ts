@@ -1,18 +1,10 @@
 import { gridPos, posKey } from '../assets/scripts/core/board/GridPos';
-import { BurnResolver } from '../assets/scripts/core/burn/BurnResolver';
 import { ColumnArea } from '../assets/scripts/core/burn/ColumnArea';
 import { RadiusArea } from '../assets/scripts/core/burn/RadiusArea';
 import { RowArea } from '../assets/scripts/core/burn/RowArea';
-import { SuperTileCatalog } from '../assets/scripts/core/burn/SuperTileCatalog';
-import { WholeBoardArea } from '../assets/scripts/core/burn/WholeBoardArea';
+import { SuperKinds } from '../assets/scripts/core/tiles/SuperKinds';
 import { boardFromText, boardToText } from './helpers/boardText';
-
-const catalog = () =>
-    new SuperTileCatalog()
-        .register('row', new RowArea())
-        .register('column', new ColumnArea())
-        .register('bomb', new RadiusArea(1))
-        .register('field', new WholeBoardArea());
+import { testResolver } from './helpers/fixtures';
 
 describe('burn areas', () => {
     const board = boardFromText(['RGB', 'GBR', 'BRG']);
@@ -28,75 +20,64 @@ describe('burn areas', () => {
     });
 });
 
-describe('SuperTileCatalog', () => {
-    it('refuses unknown and duplicate kinds', () => {
-        expect(() => catalog().areaFor('rainbow')).toThrow('Unknown super tile');
-        expect(() => catalog().register('row', new RowArea())).toThrow('already registered');
-    });
-});
-
 describe('BurnResolver', () => {
-    it('removes the cells and reports one wave', () => {
+    it('removes a tapped group as one wave', () => {
         const board = boardFromText(['RRG', 'BBB']);
 
-        const waves = new BurnResolver(catalog()).burn(board, gridPos(0, 1), [gridPos(0, 1), gridPos(1, 1)]);
+        const group = testResolver().burnGroup(board, gridPos(0, 1), [gridPos(0, 1), gridPos(1, 1)]);
 
         expect(boardToText(board)).toEqual(['..G', 'BBB']);
-        expect(waves).toHaveLength(1);
-        expect(waves[0].tiles).toHaveLength(2);
-        expect(waves[0].blast).toBeNull();
+        expect(group.tiles).toHaveLength(2);
+        expect(posKey(group.origin)).toBe('0:1');
     });
 
-    it('chains into super tiles caught in the blast', () => {
+    it('chains an explosion into the super tiles it catches', () => {
         const board = boardFromText([
             'RRRR', //
             'G-GG',
             'BBBB',
         ]);
 
-        const waves = new BurnResolver(catalog()).burn(board, gridPos(0, 2), [
-            gridPos(0, 2),
-            gridPos(1, 2),
-            gridPos(1, 1),
-        ]);
+        const cells = [gridPos(0, 2), gridPos(1, 2), gridPos(1, 1)];
+
+        const waves = testResolver().explode(board, gridPos(0, 2), cells, SuperKinds.Bomb);
 
         expect(boardToText(board)).toEqual(['..RR', '....', 'BBBB']);
         expect(waves.map((w) => posKey(w.origin))).toEqual(['0:2', '1:1']);
-        expect(waves.map((w) => w.blast)).toEqual([null, 'row']);
+        expect(waves.map((w) => w.blast)).toEqual([SuperKinds.Bomb, SuperKinds.Row]);
     });
 
-    it('names the booster that fired the area in the first wave', () => {
-        const board = boardFromText(['R|G', 'BBB']);
+    it('tells the reach of a kind without touching the board', () => {
+        const board = boardFromText(['RG', 'BY']);
 
-        const waves = new BurnResolver(catalog()).burn(board, gridPos(0, 1), [gridPos(0, 1), gridPos(1, 1)], 'bomb');
-
-        expect(waves.map((w) => w.blast)).toEqual(['bomb', 'column']);
+        expect(testResolver().reach(board, gridPos(0, 1), SuperKinds.Row).map(posKey)).toEqual(['0:1', '1:1']);
+        expect(boardToText(board)).toEqual(['RG', 'BY']);
     });
 });
 
 describe('BurnResolver.detonate', () => {
-    it('fires the area registered for the kind of the super tile', () => {
+    it('fires the area of the kind of the super tile', () => {
         const board = boardFromText([
             'RGBY', //
             'G|YB',
             'BYRG',
         ]);
 
-        const waves = new BurnResolver(catalog()).detonate(board, gridPos(1, 1));
+        const waves = testResolver().detonate(board, gridPos(1, 1));
 
         expect(boardToText(board)).toEqual(['R.BY', 'G.YB', 'B.RG']);
         expect(waves).toHaveLength(1);
         expect(posKey(waves[0].origin)).toBe('1:1');
-        expect(waves[0].blast).toBe('column');
+        expect(waves[0].blast).toBe(SuperKinds.Column);
     });
 
     it('does not fire the source tile twice and stops when supers hit each other', () => {
         const board = boardFromText(['-|', 'RG']);
 
-        const waves = new BurnResolver(catalog()).detonate(board, gridPos(0, 1));
+        const waves = testResolver().detonate(board, gridPos(0, 1));
 
         expect(waves.map((w) => posKey(w.origin))).toEqual(['0:1', '1:1']);
-        expect(waves.map((w) => w.blast)).toEqual(['row', 'column']);
+        expect(waves.map((w) => w.blast)).toEqual([SuperKinds.Row, SuperKinds.Column]);
         expect(boardToText(board)).toEqual(['..', 'R.']);
     });
 
@@ -104,7 +85,7 @@ describe('BurnResolver.detonate', () => {
         const board = boardFromText(['RGB', 'G*R', 'BRG']);
         const bomb = board.tileAt(gridPos(1, 1))!;
 
-        const waves = new BurnResolver(catalog()).detonate(board, gridPos(1, 1));
+        const waves = testResolver().detonate(board, gridPos(1, 1));
 
         expect(waves).toHaveLength(1);
         expect(waves[0].tiles.filter((burned) => burned.tile.id === bomb.id)).toHaveLength(1);
@@ -113,7 +94,7 @@ describe('BurnResolver.detonate', () => {
 
     it('refuses a cell without a super tile', () => {
         const board = boardFromText(['R.']);
-        expect(() => new BurnResolver(catalog()).detonate(board, gridPos(0, 0))).toThrow('No super tile');
-        expect(() => new BurnResolver(catalog()).detonate(board, gridPos(1, 0))).toThrow('No super tile');
+        expect(() => testResolver().detonate(board, gridPos(0, 0))).toThrow('No super tile');
+        expect(() => testResolver().detonate(board, gridPos(1, 0))).toThrow('No super tile');
     });
 });

@@ -1,29 +1,39 @@
-import { BurnOutcome, BurnStep } from '../game/TurnStep';
+import { BurnOutcome } from '../game/TurnStep';
 import { ScoreFormula } from './ScoreFormula';
 
 export type GameStatus = 'playing' | 'won' | 'lost';
 export type LoseReason = 'outOfMoves' | 'noMoves';
+export type StarCount = 0 | 1 | 2 | 3;
+/** Scores for the second and the third star. The first star comes with the target score. */
+export type StarScores = readonly [number, number];
 
 export interface ProgressSnapshot {
     readonly score: number;
     readonly targetScore: number;
+    readonly starScores: StarScores;
+    readonly stars: StarCount;
     readonly movesLeft: number;
     readonly status: GameStatus;
     readonly loseReason: LoseReason | null;
 }
 
-/** Score, moves and the win/lose verdict. Reaching the target on the last move counts as a win. */
+/** Score, moves, stars and the win/lose verdict. Reaching the target on the last move counts as a win. */
 export class LevelProgress {
     private score = 0;
-    private movesLeft: number;
+    private moves: number;
     private stuck = false;
 
     constructor(
         private readonly targetScore: number,
+        private readonly starScores: StarScores,
         moves: number,
         private readonly formula: ScoreFormula,
     ) {
-        this.movesLeft = moves;
+        this.moves = moves;
+    }
+
+    get movesLeft(): number {
+        return this.moves;
     }
 
     get status(): GameStatus {
@@ -37,24 +47,34 @@ export class LevelProgress {
         if (this.score >= this.targetScore) {
             return null;
         }
-        if (this.movesLeft <= 0) {
+        if (this.moves <= 0) {
             return 'outOfMoves';
         }
         return this.stuck ? 'noMoves' : null;
     }
 
-    /** The step carries exactly the points added here, so the view shows what was counted. */
-    scoreBurn(burn: BurnOutcome): BurnStep {
+    get stars(): StarCount {
+        if (this.score >= this.starScores[1]) {
+            return 3;
+        }
+        if (this.score >= this.starScores[0]) {
+            return 2;
+        }
+        return this.score >= this.targetScore ? 1 : 0;
+    }
+
+    /** Returns the points it added. */
+    addBurn(burn: BurnOutcome): number {
         const points = this.formula.pointsFor(burn);
         this.score += points;
-        return { ...burn, points };
+        return points;
     }
 
     spendMove(): void {
-        if (this.movesLeft <= 0) {
+        if (this.moves <= 0) {
             throw new Error('No moves left');
         }
-        this.movesLeft--;
+        this.moves--;
     }
 
     markStuck(): void {
@@ -65,7 +85,9 @@ export class LevelProgress {
         return {
             score: this.score,
             targetScore: this.targetScore,
-            movesLeft: this.movesLeft,
+            starScores: this.starScores,
+            stars: this.stars,
+            movesLeft: this.moves,
             status: this.status,
             loseReason: this.loseReason,
         };

@@ -1,27 +1,11 @@
-import { SuperKind } from '../tiles/Tile';
+import { SuperKind } from '../tiles/SuperKinds';
 import { BurnArea } from './BurnArea';
 
-/** Registry of super tile kinds. A new kind is one BurnArea class plus one register() call. */
+/** The area of every super tile kind. A full record, so a new kind in SuperKinds does not compile without one. */
 export class SuperTileCatalog {
-    private readonly areas = new Map<SuperKind, BurnArea>();
-
-    register(kind: SuperKind, area: BurnArea): this {
-        if (this.areas.has(kind)) {
-            throw new Error(`Super tile "${kind}" is already registered`);
-        }
-        this.areas.set(kind, area);
-        return this;
-    }
-
-    has(kind: SuperKind): boolean {
-        return this.areas.has(kind);
-    }
+    constructor(private readonly areas: Readonly<Record<SuperKind, BurnArea>>) {}
 
     areaFor(kind: SuperKind): BurnArea {
-        const area = this.areas.get(kind);
-        if (area === undefined) {
-            throw new Error(`Unknown super tile "${kind}"`);
-        }
-        return area;
+        return this.areas[kind];
     }
 }

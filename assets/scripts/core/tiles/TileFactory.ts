@@ -1,5 +1,6 @@
 import { Random, randomInt } from '../random/Random';
-import { SuperKind, Tile, TileColor } from './Tile';
+import { SuperKind } from './SuperKinds';
+import { Tile, TileColor } from './Tile';
 
 export class TileFactory {
     private nextId = 1;

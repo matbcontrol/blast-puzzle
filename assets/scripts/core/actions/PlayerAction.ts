@@ -1,4 +1,5 @@
 import { Board, ReadonlyBoard } from '../board/Board';
+import { GridPos } from '../board/GridPos';
 import { ActionStep } from '../game/TurnStep';
 
 /**
@@ -8,5 +9,7 @@ import { ActionStep } from '../game/TurnStep';
  */
 export interface PlayerAction {
     canApply(board: ReadonlyBoard): boolean;
+    /** The cells the action hits first, chain reactions left out. Empty exactly when canApply() is false. */
+    previewCells(board: ReadonlyBoard): GridPos[];
     apply(board: Board): ActionStep[];
 }

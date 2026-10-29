@@ -3,9 +3,10 @@ import { SwapAction } from '../actions/SwapAction';
 import { ReadonlyBoard } from '../board/Board';
 import { GridPos } from '../board/GridPos';
 import { Booster } from './Booster';
+import { BoosterIds } from './BoosterIds';
 
 export class TeleportBooster implements Booster {
-    readonly id = 'teleport';
+    readonly id = BoosterIds.Teleport;
     readonly targetCount = 2;
 
     createAction(targets: ReadonlyArray<GridPos>): PlayerAction {

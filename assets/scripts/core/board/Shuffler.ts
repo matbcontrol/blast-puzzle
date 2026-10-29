@@ -15,7 +15,7 @@ export class Shuffler {
         private readonly rules: GroupRules,
     ) {}
 
-    /** Reports every tile, also one that landed where it was: on screen the whole board takes part. */
+    /** A shuffle deals every tile anew, so it reports all of them, also a tile dealt back into its own cell. */
     shuffle(board: Board): TileMove[] {
         const before = this.positionsById(board);
 

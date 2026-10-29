@@ -1,5 +1,6 @@
-import { Board } from '../board/Board';
+import { Board, ReadonlyBoard } from '../board/Board';
 import { GridPos } from '../board/GridPos';
+import { SuperKind } from '../tiles/SuperKinds';
 import { Tile } from '../tiles/Tile';
 import { SuperTileCatalog } from './SuperTileCatalog';
 
@@ -8,68 +9,87 @@ export interface BurnedTile {
     readonly at: GridPos;
 }
 
+/** Tiles that burned together, and the cell the burn spread from. */
 export interface BurnWave {
     readonly origin: GridPos;
-    /** What fired the wave: a super tile kind or a booster id. null for a tapped color group. */
-    readonly blast: string | null;
     readonly tiles: ReadonlyArray<BurnedTile>;
 }
 
-interface PendingWave {
+/** One explosion. A booster bomb is an explosion of the bomb kind too, only with an area of its own. */
+export interface BlastWave extends BurnWave {
+    readonly blast: SuperKind;
+}
+
+interface PendingBlast {
     readonly origin: GridPos;
-    readonly blast: string | null;
-    readonly cells: GridPos[];
-    /** A super tile that started this wave is consumed without firing again. */
+    readonly blast: SuperKind;
+    readonly cells: ReadonlyArray<GridPos>;
+    /** A super tile that started this blast is consumed without firing again. */
     readonly sourceTileId: number | null;
 }
 
 /**
- * Clears cells from the board. Every super tile caught in the blast fires its own area as the next wave.
+ * Clears cells from the board. Every super tile caught in an explosion fires its own area as the next wave.
  * Each tile is removed the moment it burns, so a chain always terminates.
  */
 export class BurnResolver {
     constructor(private readonly catalog: SuperTileCatalog) {}
 
-    /** Fires the super tile at `at` with its own area. The tile burns in the first wave and does not fire again. */
-    detonate(board: Board, at: GridPos): BurnWave[] {
+    /** The cells an explosion of `kind` at `at` hits by itself, before it sets off other super tiles. */
+    reach(board: ReadonlyBoard, at: GridPos, kind: SuperKind): GridPos[] {
+        return this.catalog.areaFor(kind).cellsAround(board, at);
+    }
+
+    /** A group holds only regular tiles, so burning it never sets anything off. */
+    burnGroup(board: Board, origin: GridPos, cells: ReadonlyArray<GridPos>): BurnWave {
+        return { origin, tiles: clear(board, cells) };
+    }
+
+    /** Fires the super tile at `at`. It burns in the first wave and does not fire again. */
+    detonate(board: Board, at: GridPos): BlastWave[] {
         const tile = board.tileAt(at);
         if (tile === null || !tile.isSuper) {
             throw new Error(`No super tile at ${at.col}:${at.row}`);
         }
-        return this.resolve(board, this.waveOf(tile, board, at));
+        return this.resolve(board, this.blastOf(tile, board, at));
     }
 
-    /** @param blast the booster that burns these cells, or null for a tapped color group. */
-    burn(board: Board, origin: GridPos, cells: GridPos[], blast: string | null = null): BurnWave[] {
+    /** An explosion that no super tile on the board fired, such as a booster bomb. */
+    explode(board: Board, origin: GridPos, cells: ReadonlyArray<GridPos>, blast: SuperKind): BlastWave[] {
         return this.resolve(board, { origin, blast, cells, sourceTileId: null });
     }
 
-    private resolve(board: Board, first: PendingWave): BurnWave[] {
-        const waves: BurnWave[] = [];
-        const pending: PendingWave[] = [first];
+    private resolve(board: Board, first: PendingBlast): BlastWave[] {
+        const waves: BlastWave[] = [];
+        const pending: PendingBlast[] = [first];
 
         while (pending.length > 0) {
-            const wave = pending.shift() as PendingWave;
-            const burned: BurnedTile[] = [];
-            for (const at of wave.cells) {
-                const tile = board.tileAt(at);
-                if (tile === null) {
-                    continue;
-                }
-                board.put(at, null);
-                burned.push({ tile, at });
-                if (tile.isSuper && tile.id !== wave.sourceTileId) {
-                    pending.push(this.waveOf(tile, board, at));
+            const next = pending.shift() as PendingBlast;
+            const tiles = clear(board, next.cells);
+            for (const burned of tiles) {
+                if (burned.tile.isSuper && burned.tile.id !== next.sourceTileId) {
+                    pending.push(this.blastOf(burned.tile, board, burned.at));
                 }
             }
-            waves.push({ origin: wave.origin, blast: wave.blast, tiles: burned });
+            waves.push({ origin: next.origin, blast: next.blast, tiles });
         }
         return waves;
     }
 
-    private waveOf(superTile: Tile, board: Board, at: GridPos): PendingWave {
-        const kind = superTile.requireSuperKind();
-        const cells = this.catalog.areaFor(kind).cellsAround(board, at);
-        return { origin: at, blast: kind, cells, sourceTileId: superTile.id };
+    private blastOf(superTile: Tile, board: ReadonlyBoard, at: GridPos): PendingBlast {
+        const blast = superTile.requireSuperKind();
+        return { origin: at, blast, cells: this.reach(board, at, blast), sourceTileId: superTile.id };
     }
+}
+
+function clear(board: Board, cells: ReadonlyArray<GridPos>): BurnedTile[] {
+    const burned: BurnedTile[] = [];
+    for (const at of cells) {
+        const tile = board.tileAt(at);
+        if (tile !== null) {
+            board.put(at, null);
+            burned.push({ tile, at });
+        }
+    }
+    return burned;
 }

@@ -1,6 +1,7 @@
 /**
- * Balance check: bots play the real model many times and report the score they reach.
- * The level target is picked from these numbers, not by feel.
+ * Balance check: bots play the real model many times and report the score they reach,
+ * then play the real level to the end, bonus round included, and report the stars.
+ * The target and the star scores are picked from these numbers, not by feel.
  *
  *   npm run simulate -- assets/configs/level1.json 2000
  */
@@ -37,8 +38,13 @@ function playOnce(config: LevelConfig, seed: number, strategy: Strategy) {
     while (game.progressSnapshot.status === 'playing') {
         game.tap(strategy(game.currentBoard, pick));
     }
+    while (game.playFinale() !== null) {
+        // Every move left after a win goes off as a bonus rocket.
+    }
     return game.progressSnapshot;
 }
+
+const share = (count: number, runs: number) => `${((count / runs) * 100).toFixed(0)}%`;
 
 function percentile(sorted: number[], p: number): number {
     return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))];
@@ -54,6 +60,7 @@ const open = { ...config, targetScore: Number.MAX_SAFE_INTEGER };
 console.log(`${configPath}: ${config.cols}x${config.rows}, ${config.colorCount} colors, ${config.moves} moves`);
 for (const name of Object.keys(strategies)) {
     const scores: number[] = [];
+    const starCounts = [0, 0, 0, 0];
     let stuck = 0;
     for (let seed = 1; seed <= runs; seed++) {
         const result = playOnce(open, seed, strategies[name](rules));
@@ -61,11 +68,17 @@ for (const name of Object.keys(strategies)) {
         if (result.loseReason === 'noMoves') {
             stuck++;
         }
+        starCounts[playOnce(config, seed, strategies[name](rules)).stars]++;
     }
     scores.sort((a, b) => a - b);
     const winRate = scores.filter((s) => s >= config.targetScore).length / runs;
     console.log(
         `${name.padEnd(7)} p10 ${percentile(scores, 0.1)}  p50 ${percentile(scores, 0.5)}  p90 ${percentile(scores, 0.9)}` +
             `  wins at target ${config.targetScore}: ${(winRate * 100).toFixed(0)}%  stuck: ${stuck}`,
+    );
+    const atLeast = (stars: number) => starCounts.slice(stars).reduce((sum, count) => sum + count, 0);
+    console.log(
+        `${''.padEnd(7)} with the bonus round: 1+ star ${share(atLeast(1), runs)}  2+ stars ${share(atLeast(2), runs)}` +
+            `  3 stars ${share(atLeast(3), runs)}`,
     );
 }

@@ -1,5 +1,12 @@
+import { BurnResolver } from '../../assets/scripts/core/burn/BurnResolver';
+import { ColumnArea } from '../../assets/scripts/core/burn/ColumnArea';
+import { RadiusArea } from '../../assets/scripts/core/burn/RadiusArea';
+import { RowArea } from '../../assets/scripts/core/burn/RowArea';
+import { SuperTileCatalog } from '../../assets/scripts/core/burn/SuperTileCatalog';
+import { WholeBoardArea } from '../../assets/scripts/core/burn/WholeBoardArea';
 import { LevelConfig } from '../../assets/scripts/core/config/LevelConfig';
 import { Random } from '../../assets/scripts/core/random/Random';
+import { SuperKinds } from '../../assets/scripts/core/tiles/SuperKinds';
 
 /** Replays the given values in a loop. Lets a test decide exactly which colors fall in. */
 export class ScriptedRandom implements Random {
@@ -24,6 +31,7 @@ export function testConfig(overrides: Partial<LevelConfig> = {}): LevelConfig {
         colorCount: 5,
         minGroupSize: 2,
         targetScore: 1000,
+        starScores: [2000, 3000],
         moves: 10,
         pointsPerTile: 10,
         maxShuffles: 3,
@@ -35,4 +43,16 @@ export function testConfig(overrides: Partial<LevelConfig> = {}): LevelConfig {
         seed: null,
         ...overrides,
     };
+}
+
+/** The bomb has radius 1 here, so its square fits the small boards of the tests. */
+export function testResolver(): BurnResolver {
+    return new BurnResolver(
+        new SuperTileCatalog({
+            [SuperKinds.Row]: new RowArea(),
+            [SuperKinds.Column]: new ColumnArea(),
+            [SuperKinds.Bomb]: new RadiusArea(1),
+            [SuperKinds.Field]: new WholeBoardArea(),
+        }),
+    );
 }

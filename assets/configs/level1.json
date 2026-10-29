@@ -4,6 +4,7 @@
   "colorCount": 5,
   "minGroupSize": 2,
   "targetScore": 3200,
+  "starScores": [3750, 4400],
   "moves": 30,
   "pointsPerTile": 10,
   "maxShuffles": 3,

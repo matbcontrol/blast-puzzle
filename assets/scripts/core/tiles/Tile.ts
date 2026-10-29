@@ -1,5 +1,6 @@
+import { SuperKind } from './SuperKinds';
+
 export type TileColor = number;
-export type SuperKind = string;
 
 export class Tile {
     private constructor(

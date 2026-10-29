@@ -15,11 +15,15 @@ export class ActivateSuperAction implements PlayerAction {
         return tile !== null && tile.isSuper;
     }
 
+    previewCells(board: ReadonlyBoard): GridPos[] {
+        const tile = board.tileAt(this.origin);
+        return tile === null || tile.superKind === null ? [] : this.burner.reach(board, this.origin, tile.superKind);
+    }
+
     apply(board: Board): ActionStep[] {
         if (!this.canApply(board)) {
             throw new Error('No super tile at the tapped cell');
         }
-        const waves = this.burner.detonate(board, this.origin);
-        return [{ type: 'burn', waves, fromGroup: false, collapseTo: null }];
+        return [{ type: 'burn', cause: 'blast', waves: this.burner.detonate(board, this.origin) }];
     }
 }

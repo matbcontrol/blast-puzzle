@@ -1,3 +1,4 @@
+import { StarScores } from '../rules/LevelProgress';
 import { SuperTileRule } from '../tiles/SuperTilePicker';
 
 export interface LevelConfig {
@@ -6,6 +7,7 @@ export interface LevelConfig {
     readonly colorCount: number;
     readonly minGroupSize: number;
     readonly targetScore: number;
+    readonly starScores: StarScores;
     readonly moves: number;
     readonly pointsPerTile: number;
     readonly maxShuffles: number;

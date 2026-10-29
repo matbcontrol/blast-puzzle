@@ -13,12 +13,10 @@ export class BlastScore implements ScoreFormula {
     constructor(private readonly pointsPerTile: number) {}
 
     pointsFor(burn: BurnOutcome): number {
-        let points = 0;
-        burn.waves.forEach((wave, i) => {
-            const n = wave.tiles.length;
-            const units = i === 0 && burn.fromGroup ? (n * (n + 1)) / 2 : n;
-            points += units * this.pointsPerTile;
-        });
-        return points;
+        if (burn.cause === 'group') {
+            const n = burn.group.tiles.length;
+            return ((n * (n + 1)) / 2) * this.pointsPerTile;
+        }
+        return burn.waves.reduce((tiles, wave) => tiles + wave.tiles.length, 0) * this.pointsPerTile;
     }
 }

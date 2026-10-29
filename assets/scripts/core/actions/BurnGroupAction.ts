@@ -20,22 +20,26 @@ export class BurnGroupAction implements PlayerAction {
         return this.rules.burnableGroupAt(board, this.origin) !== null;
     }
 
+    previewCells(board: ReadonlyBoard): GridPos[] {
+        return this.rules.burnableGroupAt(board, this.origin) || [];
+    }
+
     apply(board: Board): ActionStep[] {
-        const group = this.rules.burnableGroupAt(board, this.origin);
-        if (group === null) {
+        const cells = this.rules.burnableGroupAt(board, this.origin);
+        if (cells === null) {
             throw new Error('No burnable group at the tapped cell');
         }
 
-        const waves = this.burner.burn(board, this.origin, group);
-        const kind = this.superTiles.pick(group.length);
+        const group = this.burner.burnGroup(board, this.origin, cells);
+        const kind = this.superTiles.pick(cells.length);
         if (kind === null) {
-            return [{ type: 'burn', waves, fromGroup: true, collapseTo: null }];
+            return [{ type: 'burn', cause: 'group', group, collapseTo: null }];
         }
 
         const tile = this.tiles.createSuper(kind);
         board.put(this.origin, tile);
         return [
-            { type: 'burn', waves, fromGroup: true, collapseTo: this.origin },
+            { type: 'burn', cause: 'group', group, collapseTo: this.origin },
             { type: 'superCreated', tile, at: this.origin },
         ];
     }

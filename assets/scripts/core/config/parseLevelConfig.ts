@@ -1,3 +1,4 @@
+import { ALL_SUPER_KINDS } from '../tiles/SuperKinds';
 import { SuperTileRule } from '../tiles/SuperTilePicker';
 import { LevelConfig } from './LevelConfig';
 
@@ -21,13 +22,31 @@ class FieldReader {
         return value;
     }
 
-    stringList(name: string): string[] {
+    oneOfList<T extends string>(name: string, allowed: ReadonlyArray<T>): T[] {
         const value = this.source[name];
-        if (!Array.isArray(value) || value.length === 0 || value.some((item) => typeof item !== 'string')) {
-            this.errors.push(`${this.path}${name}: expected a non-empty list of strings`);
+        if (!Array.isArray(value) || value.length === 0 || value.some((item) => allowed.indexOf(item) < 0)) {
+            this.errors.push(
+                `${this.path}${name}: expected a non-empty list of ${allowed.join(', ')}, got ${JSON.stringify(value)}`,
+            );
             return [];
         }
-        return value as string[];
+        return value;
+    }
+
+    /** `count` integers, each above `floor` and above the one before it. */
+    ascendingInts(name: string, count: number, floor: number): number[] {
+        const value = this.source[name];
+        const valid =
+            Array.isArray(value) &&
+            value.length === count &&
+            value.every((item, i) => Number.isInteger(item) && item > (i === 0 ? floor : value[i - 1]));
+        if (!valid) {
+            this.errors.push(
+                `${this.path}${name}: expected ${count} increasing integers above ${floor}, got ${JSON.stringify(value)}`,
+            );
+            return [];
+        }
+        return value;
     }
 
     list(name: string): Json[] {
@@ -62,15 +81,21 @@ export function parseLevelConfig(raw: unknown): LevelConfig {
     const minGroupSize = read.int('minGroupSize', 2);
     const superTiles: SuperTileRule[] = read.list('superTiles').map((rule, i) => {
         const ruleReader = new FieldReader(rule, errors, `superTiles[${i}].`);
-        return { minGroupSize: ruleReader.int('minGroupSize', minGroupSize), kinds: ruleReader.stringList('kinds') };
+        return {
+            minGroupSize: ruleReader.int('minGroupSize', minGroupSize),
+            kinds: ruleReader.oneOfList('kinds', ALL_SUPER_KINDS),
+        };
     });
+    const targetScore = read.int('targetScore', 1);
+    const [twoStars, threeStars] = read.ascendingInts('starScores', 2, targetScore);
 
     const config: LevelConfig = {
         cols,
         rows,
         colorCount,
         minGroupSize,
-        targetScore: read.int('targetScore', 1),
+        targetScore,
+        starScores: [twoStars, threeStars],
         moves: read.int('moves', 1),
         pointsPerTile: read.int('pointsPerTile', 1),
         maxShuffles: read.int('maxShuffles', 0),

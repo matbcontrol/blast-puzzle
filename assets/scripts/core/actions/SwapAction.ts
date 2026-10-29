@@ -17,6 +17,10 @@ export class SwapAction implements PlayerAction {
         return !samePos(this.a, this.b) && first !== null && second !== null && !first.looksLike(second);
     }
 
+    previewCells(board: ReadonlyBoard): GridPos[] {
+        return this.canApply(board) ? [this.a, this.b] : [];
+    }
+
     apply(board: Board): ActionStep[] {
         if (!this.canApply(board)) {
             throw new Error('Nothing to swap between the chosen cells');

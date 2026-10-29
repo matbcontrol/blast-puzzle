@@ -7,6 +7,8 @@ export interface ReadonlyBoard {
     contains(p: GridPos): boolean;
     tileAt(p: GridPos): Tile | null;
     positions(): GridPos[];
+    /** Cells holding a tile that passes `test`. */
+    cellsWhere(test: (tile: Tile) => boolean): GridPos[];
 }
 
 export class Board implements ReadonlyBoard {
@@ -48,6 +50,13 @@ export class Board implements ReadonlyBoard {
             }
         }
         return result;
+    }
+
+    cellsWhere(test: (tile: Tile) => boolean): GridPos[] {
+        return this.positions().filter((p) => {
+            const tile = this.tileAt(p);
+            return tile !== null && test(tile);
+        });
     }
 
     private indexOf(p: GridPos): number {

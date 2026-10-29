@@ -17,6 +17,13 @@ describe('Board', () => {
         expect(board.tileAt(gridPos(3, 0))).toBeNull();
         expect(() => board.put(gridPos(0, 2), null)).toThrow();
     });
+
+    it('lists the cells whose tile passes a test, never an empty one', () => {
+        const board = boardFromText(['R*', '.G']);
+
+        expect(board.cellsWhere((tile) => tile.isSuper)).toEqual([gridPos(1, 1)]);
+        expect(keys(board.cellsWhere(() => true))).toEqual(['0:1', '1:0', '1:1']);
+    });
 });
 
 describe('findColorGroup', () => {
@@ -52,6 +59,19 @@ describe('GroupRules', () => {
 
     it('treats any super tile as a move', () => {
         expect(new GroupRules(2).hasMove(boardFromText(['R|', 'GR']))).toBe(true);
+    });
+
+    it('lists every burnable group once', () => {
+        const board = boardFromText([
+            'RRG', //
+            'BRG',
+            'BYY',
+        ]);
+
+        const sizes = (rules: GroupRules) => rules.burnableGroups(board).map((group) => group.length);
+
+        expect(sizes(new GroupRules(2)).sort()).toEqual([2, 2, 2, 3]);
+        expect(keys(new GroupRules(3).burnableGroups(board)[0])).toEqual(['0:2', '1:1', '1:2']);
     });
 
     it('respects the minimum group size', () => {

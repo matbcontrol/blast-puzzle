@@ -1,5 +1,6 @@
 import { Board, ReadonlyBoard } from '../../assets/scripts/core/board/Board';
 import { gridPos } from '../../assets/scripts/core/board/GridPos';
+import { SuperKind, SuperKinds } from '../../assets/scripts/core/tiles/SuperKinds';
 import { Tile } from '../../assets/scripts/core/tiles/Tile';
 
 /**
@@ -9,7 +10,12 @@ import { Tile } from '../../assets/scripts/core/tiles/Tile';
  *   .          empty cell
  */
 const COLORS = 'RGBYP';
-const SUPERS: { [symbol: string]: string } = { '-': 'row', '|': 'column', '*': 'bomb', '#': 'field' };
+const SUPERS: { [symbol: string]: SuperKind } = {
+    '-': SuperKinds.Row,
+    '|': SuperKinds.Column,
+    '*': SuperKinds.Bomb,
+    '#': SuperKinds.Field,
+};
 
 let nextId = 10_000;
 

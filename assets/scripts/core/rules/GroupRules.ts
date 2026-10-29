@@ -11,6 +11,23 @@ export class GroupRules {
         return this.isBurnable(group) ? group : null;
     }
 
+    /** Every burnable group on the board, each flooded and listed once. */
+    burnableGroups(board: ReadonlyBoard): GridPos[][] {
+        const seen = new Set<string>();
+        const groups: GridPos[][] = [];
+        for (const p of board.positions()) {
+            if (seen.has(posKey(p))) {
+                continue;
+            }
+            const group = findColorGroup(board, p);
+            group.forEach((member) => seen.add(posKey(member)));
+            if (this.isBurnable(group)) {
+                groups.push(group);
+            }
+        }
+        return groups;
+    }
+
     /** The one definition of a legal tap: a super tile fires, a regular tile needs a burnable group. */
     canTap(board: ReadonlyBoard, at: GridPos): boolean {
         const tile = board.tileAt(at);
@@ -19,25 +36,7 @@ export class GroupRules {
 
     /** Same answer as canTap on every cell, but floods each group only once. */
     hasMove(board: ReadonlyBoard): boolean {
-        const checked = new Set<string>();
-        for (const p of board.positions()) {
-            if (checked.has(posKey(p))) {
-                continue;
-            }
-            const tile = board.tileAt(p);
-            if (tile === null) {
-                continue;
-            }
-            if (tile.isSuper) {
-                return true;
-            }
-            const group = findColorGroup(board, p);
-            if (this.isBurnable(group)) {
-                return true;
-            }
-            group.forEach((member) => checked.add(posKey(member)));
-        }
-        return false;
+        return board.cellsWhere((tile) => tile.isSuper).length > 0 || this.burnableGroups(board).length > 0;
     }
 
     private isBurnable(group: GridPos[]): boolean {
