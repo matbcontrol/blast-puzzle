@@ -17,11 +17,15 @@ export default tseslint.config(
         },
     },
     {
-        // The model must stay engine-free: that is what keeps it testable in Node.
-        files: ['assets/scripts/core/**/*.ts'],
+        // Model and controller stay engine-free: that is what keeps them testable in Node.
+        files: ['assets/scripts/core/**/*.ts', 'assets/scripts/app/**/*.ts'],
         rules: {
-            'no-restricted-globals': ['error', { name: 'cc', message: 'core/ must not depend on Cocos' }],
+            'no-restricted-globals': ['error', { name: 'cc', message: 'core/ and app/ must not depend on Cocos' }],
         },
+    },
+    {
+        files: ['tools/**/*.ts'],
+        rules: { 'no-console': 'off' },
     },
     {
         ignores: ['library/', 'temp/', 'local/', 'build/', 'node_modules/', 'creator.d.ts', '*.js'],

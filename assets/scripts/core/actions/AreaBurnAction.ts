@@ -18,6 +18,6 @@ export class AreaBurnAction implements PlayerAction {
 
     apply(board: Board): TurnStep[] {
         const waves = this.burner.burn(board, this.origin, this.area.cellsAround(board, this.origin));
-        return [{ type: 'burn', waves }];
+        return [{ type: 'burn', waves, fromGroup: false }];
     }
 }

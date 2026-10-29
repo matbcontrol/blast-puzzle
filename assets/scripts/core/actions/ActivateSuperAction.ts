@@ -25,6 +25,6 @@ export class ActivateSuperAction implements PlayerAction {
         }
         const area = this.catalog.areaFor(tile.superKind as SuperKind);
         const waves = this.burner.burn(board, this.origin, area.cellsAround(board, this.origin), tile.id);
-        return [{ type: 'burn', waves }];
+        return [{ type: 'burn', waves, fromGroup: false }];
     }
 }

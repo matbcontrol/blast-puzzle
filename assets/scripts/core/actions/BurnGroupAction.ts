@@ -26,7 +26,8 @@ export class BurnGroupAction implements PlayerAction {
             throw new Error('No burnable group at the tapped cell');
         }
 
-        const steps: TurnStep[] = [{ type: 'burn', waves: this.burner.burn(board, this.origin, group) }];
+        const waves = this.burner.burn(board, this.origin, group);
+        const steps: TurnStep[] = [{ type: 'burn', waves, fromGroup: true }];
 
         const kind = this.superTiles.pick(group.length);
         if (kind !== null) {

@@ -1,0 +1,20 @@
+{
+  "cols": 9,
+  "rows": 10,
+  "colors": 5,
+  "minGroupSize": 2,
+  "targetScore": 3200,
+  "moves": 30,
+  "pointsPerTile": 10,
+  "maxShuffles": 3,
+  "bombCharges": 3,
+  "bombRadius": 1,
+  "teleportCharges": 5,
+  "superBombRadius": 2,
+  "superTiles": [
+    { "minGroupSize": 6, "kinds": ["row", "column"] },
+    { "minGroupSize": 8, "kinds": ["bomb"] },
+    { "minGroupSize": 10, "kinds": ["field"] }
+  ],
+  "seed": null
+}

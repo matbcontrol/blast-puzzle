@@ -16,7 +16,7 @@ import { Random } from '../random/Random';
 import { AutoShuffle } from '../rules/AutoShuffle';
 import { GroupRules } from '../rules/GroupRules';
 import { LevelProgress } from '../rules/LevelProgress';
-import { ProgressiveScore } from '../rules/ScoreFormula';
+import { BlastScore } from '../rules/ScoreFormula';
 import { SuperKinds } from '../tiles/SuperKinds';
 import { SuperTilePicker } from '../tiles/SuperTilePicker';
 import { TileFactory } from '../tiles/TileFactory';
@@ -59,7 +59,7 @@ export function createBlastGame(config: LevelConfig, random: Random, layout?: Bo
 
     return new BlastGame(
         board,
-        new LevelProgress(config.targetScore, config.moves, new ProgressiveScore(config.pointsPerTile)),
+        new LevelProgress(config.targetScore, config.moves, new BlastScore(config.pointsPerTile)),
         rules,
         tapActions,
         boosters,

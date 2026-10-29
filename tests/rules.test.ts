@@ -1,25 +1,41 @@
 import { parseLevelConfig } from '../assets/scripts/core/config/parseLevelConfig';
 import { LevelProgress } from '../assets/scripts/core/rules/LevelProgress';
-import { ProgressiveScore } from '../assets/scripts/core/rules/ScoreFormula';
+import { gridPos } from '../assets/scripts/core/board/GridPos';
+import { BurnStep } from '../assets/scripts/core/game/TurnStep';
+import { BlastScore } from '../assets/scripts/core/rules/ScoreFormula';
+import { Tile } from '../assets/scripts/core/tiles/Tile';
 import { SuperTilePicker } from '../assets/scripts/core/tiles/SuperTilePicker';
 import { alwaysRed, testConfig } from './helpers/fixtures';
 
-describe('ProgressiveScore', () => {
-    it('rewards bigger groups more than linearly', () => {
-        const score = new ProgressiveScore(10);
-        expect(score.pointsFor(0)).toBe(0);
-        expect(score.pointsFor(2)).toBe(30);
-        expect(score.pointsFor(5)).toBe(150);
-        expect(score.pointsFor(10)).toBeGreaterThan(2 * score.pointsFor(5));
+function burn(fromGroup: boolean, ...waveSizes: number[]): BurnStep {
+    const waves = waveSizes.map((size) => ({
+        origin: gridPos(0, 0),
+        tiles: Array.from({ length: size }, (_, i) => ({ tile: Tile.ofColor(i, 0), at: gridPos(i, 0) })),
+    }));
+    return { type: 'burn', waves, fromGroup };
+}
+
+describe('BlastScore', () => {
+    const score = new BlastScore(10);
+
+    it('rewards bigger tapped groups more than linearly', () => {
+        expect(score.pointsFor(burn(true, 2))).toBe(30);
+        expect(score.pointsFor(burn(true, 5))).toBe(150);
+        expect(score.pointsFor(burn(true, 10))).toBeGreaterThan(2 * score.pointsFor(burn(true, 5)));
+    });
+
+    it('pays explosions per tile so a whole-board blast does not break the level', () => {
+        expect(score.pointsFor(burn(false, 90))).toBe(900);
+        expect(score.pointsFor(burn(true, 3, 9))).toBe(60 + 90);
     });
 });
 
 describe('LevelProgress', () => {
-    const progress = (target: number, moves: number) => new LevelProgress(target, moves, new ProgressiveScore(10));
+    const progress = (target: number, moves: number) => new LevelProgress(target, moves, new BlastScore(10));
 
     it('prefers a win over running out of moves', () => {
         const level = progress(30, 1);
-        level.addBurned(2);
+        level.addScore([burn(true, 2)]);
         level.spendMove();
         expect(level.snapshot()).toMatchObject({ status: 'won', loseReason: null, movesLeft: 0 });
     });

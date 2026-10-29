@@ -52,7 +52,7 @@ describe('BlastGame: tapping', () => {
 
         const result = game.tap(gridPos(1, 1));
 
-        expect(result!.scoreGained).toBe(100);
+        expect(result!.scoreGained).toBe(40);
         expect(result!.progress.movesLeft).toBe(9);
     });
 });
@@ -63,7 +63,7 @@ describe('BlastGame: boosters', () => {
 
         const result = game.useBooster('bomb', [gridPos(1, 1)]);
 
-        expect(result!.scoreGained).toBe(450);
+        expect(result!.scoreGained).toBe(90);
         expect(result!.progress.movesLeft).toBe(10);
         expect(game.boosterCharges('bomb')).toBe(0);
         expect(game.useBooster('bomb', [gridPos(1, 1)])).toBeNull();

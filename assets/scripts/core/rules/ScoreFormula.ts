@@ -1,15 +1,24 @@
+import { BurnStep } from '../game/TurnStep';
+
 export interface ScoreFormula {
-    pointsFor(burnedCount: number): number;
+    pointsFor(step: BurnStep): number;
 }
 
 /**
- * The k-th tile of a burn is worth k * pointsPerTile, so one big group beats several small ones:
- * 2 tiles give 3 units, 5 tiles give 15, 10 tiles give 55.
+ * A tapped group pays progressively: its k-th tile is worth k * pointsPerTile,
+ * so 2 tiles give 3 units, 5 give 15, 10 give 55. Explosions pay a flat pointsPerTile per tile,
+ * otherwise one whole-board blast would be worth more than the rest of the level.
  */
-export class ProgressiveScore implements ScoreFormula {
+export class BlastScore implements ScoreFormula {
     constructor(private readonly pointsPerTile: number) {}
 
-    pointsFor(burnedCount: number): number {
-        return (this.pointsPerTile * burnedCount * (burnedCount + 1)) / 2;
+    pointsFor(step: BurnStep): number {
+        let points = 0;
+        step.waves.forEach((wave, i) => {
+            const n = wave.tiles.length;
+            const units = i === 0 && step.fromGroup ? (n * (n + 1)) / 2 : n;
+            points += units * this.pointsPerTile;
+        });
+        return points;
     }
 }

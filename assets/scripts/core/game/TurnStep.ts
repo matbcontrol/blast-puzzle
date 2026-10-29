@@ -10,6 +10,8 @@ export type TurnStep = BurnStep | SuperCreatedStep | SwapStep | FallStep | Refil
 export interface BurnStep {
     readonly type: 'burn';
     readonly waves: ReadonlyArray<BurnWave>;
+    /** The first wave is a same-color group the player tapped, the rest are explosions. */
+    readonly fromGroup: boolean;
 }
 
 export interface SuperCreatedStep {
@@ -36,14 +38,4 @@ export interface RefillStep {
 export interface ShuffleStep {
     readonly type: 'shuffle';
     readonly moves: ReadonlyArray<TileMove>;
-}
-
-export function countBurned(steps: ReadonlyArray<TurnStep>): number {
-    let count = 0;
-    for (const step of steps) {
-        if (step.type === 'burn') {
-            step.waves.forEach((wave) => (count += wave.tiles.length));
-        }
-    }
-    return count;
 }

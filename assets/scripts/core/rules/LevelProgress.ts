@@ -1,3 +1,4 @@
+import { TurnStep } from '../game/TurnStep';
 import { ScoreFormula } from './ScoreFormula';
 
 export type GameStatus = 'playing' | 'won' | 'lost';
@@ -42,8 +43,13 @@ export class LevelProgress {
         return this.stuck ? 'noMoves' : null;
     }
 
-    addBurned(count: number): number {
-        const points = this.formula.pointsFor(count);
+    addScore(steps: ReadonlyArray<TurnStep>): number {
+        let points = 0;
+        for (const step of steps) {
+            if (step.type === 'burn') {
+                points += this.formula.pointsFor(step);
+            }
+        }
         this.score += points;
         return points;
     }

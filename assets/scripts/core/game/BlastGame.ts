@@ -8,7 +8,7 @@ import { BoosterInventory } from '../boosters/BoosterInventory';
 import { AutoShuffle } from '../rules/AutoShuffle';
 import { GroupRules } from '../rules/GroupRules';
 import { LevelProgress, ProgressSnapshot } from '../rules/LevelProgress';
-import { countBurned, TurnStep } from './TurnStep';
+import { TurnStep } from './TurnStep';
 
 export interface TurnResult {
     readonly steps: ReadonlyArray<TurnStep>;
@@ -82,7 +82,7 @@ export class BlastGame {
         }
 
         const steps = action.apply(this.board);
-        const scoreGained = this.progress.addBurned(countBurned(steps));
+        const scoreGained = this.progress.addScore(steps);
         if (spendsMove) {
             this.progress.spendMove();
         }
