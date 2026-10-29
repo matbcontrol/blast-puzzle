@@ -1,12 +1,13 @@
-import { TurnStep } from '../../core/game/TurnStep';
+import { BurnStep, TurnStep } from '../../core/game/TurnStep';
+import { ColumnGates, ColumnTile } from './ColumnGates';
 import { StepAnimator, StepType } from './StepAnimator';
-import { TileStage } from './TileStage';
+import { TileStage, TurnStage } from './TileStage';
 
 /**
- * A step listed here starts together with the previous one when that one is of the given type:
- * new tiles fall in while old ones are still falling. Any other step waits for everything before it.
+ * These steps start right away, and each of their columns waits until it is settled: new tiles drop into a column
+ * the moment its burn is over. Any other step waits for everything before it.
  */
-const STARTS_WITH: { readonly [K in StepType]?: StepType } = { refill: 'fall' };
+const SETTLES_COLUMNS: ReadonlyArray<StepType> = ['fall', 'refill'];
 
 export class TurnPlayer {
     private readonly animators = new Map<StepType, StepAnimator>();
@@ -18,16 +19,25 @@ export class TurnPlayer {
         return this;
     }
 
+    handles(type: StepType): boolean {
+        return this.animators.has(type);
+    }
+
     async play(steps: ReadonlyArray<TurnStep>): Promise<void> {
+        const gates = new ColumnGates();
+        const stage = gatedStage(this.stage, gates);
         let running: Array<Promise<void>> = [];
-        let previous: StepType | null = null;
         for (const step of steps) {
-            if (STARTS_WITH[step.type] !== previous) {
+            if (SETTLES_COLUMNS.indexOf(step.type) < 0) {
                 await Promise.all(running);
                 running = [];
             }
-            running.push(this.animatorFor(step.type).play(step, this.stage));
-            previous = step.type;
+            // Claimed before the step starts, so no removal can come ahead of its claim.
+            let finish: () => void = () => undefined;
+            claimColumns(gates, step, new Promise<void>((resolve) => (finish = resolve)));
+            const playing = this.animatorFor(step.type).play(step, stage);
+            playing.then(finish, finish);
+            running.push(playing);
         }
         await Promise.all(running);
     }
@@ -39,4 +49,60 @@ export class TurnPlayer {
         }
         return animator;
     }
+}
+
+/** A burn holds its columns tile by tile. Any other step that puts a tile somewhere holds those columns whole. */
+function claimColumns(gates: ColumnGates, step: TurnStep, playing: Promise<void>): void {
+    switch (step.type) {
+        case 'burn':
+            gates.burn(burnedTiles(step), playing);
+            return;
+        case 'superCreated':
+        case 'bonusSuper':
+            gates.hold(step.at.col, playing);
+            return;
+        case 'swap':
+        case 'shuffle':
+            step.moves.forEach((move) => {
+                gates.hold(move.from.col, playing);
+                gates.hold(move.to.col, playing);
+            });
+            return;
+        case 'fall':
+        case 'refill':
+            return;
+    }
+}
+
+function burnedTiles(step: BurnStep): ColumnTile[] {
+    const waves = step.cause === 'group' ? [step.group] : step.waves;
+    const tiles: ColumnTile[] = [];
+    waves.forEach((wave) => wave.tiles.forEach((burned) => tiles.push({ id: burned.tile.id, col: burned.at.col })));
+    return tiles;
+}
+
+/** The stage as the animators of one turn see it: every removed tile frees its column a little more. */
+function gatedStage(stage: TileStage, gates: ColumnGates): TurnStage {
+    return {
+        get layout() {
+            return stage.layout;
+        },
+        get effects() {
+            return stage.effects;
+        },
+        get sound() {
+            return stage.sound;
+        },
+        nodeOf: (tileId) => stage.nodeOf(tileId),
+        spawn: (tile, col, row) => stage.spawn(tile, col, row),
+        remove: (tileId) => {
+            stage.remove(tileId);
+            gates.removed(tileId);
+        },
+        sortByRow: (node, row) => stage.sortByRow(node, row),
+        bringToFront: (node) => stage.bringToFront(node),
+        shake: (strength) => stage.shake(strength),
+        wait: (seconds) => stage.wait(seconds),
+        columnSettled: (col) => gates.settled(col),
+    };
 }

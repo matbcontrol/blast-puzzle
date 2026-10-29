@@ -3,20 +3,20 @@ import { ShuffleStep } from '../../core/game/TurnStep';
 import { Texts } from '../Texts';
 import { Feel } from './Feel';
 import { playTween, StepAnimator } from './StepAnimator';
-import { TileStage } from './TileStage';
+import { TurnStage } from './TileStage';
 import { Timings } from './Timings';
 
 /** The tiles spin into a swirl around the board center and fly out to their new cells. */
 export class ShuffleAnimator implements StepAnimator<'shuffle'> {
     readonly type = 'shuffle';
 
-    async play(step: ShuffleStep, stage: TileStage): Promise<void> {
+    async play(step: ShuffleStep, stage: TurnStage): Promise<void> {
         stage.sound.play('shuffle');
         stage.effects.praise(Texts.praise.shuffle);
         await Promise.all(step.moves.map((move) => this.reshuffle(move, stage)));
     }
 
-    private reshuffle(move: TileMove, stage: TileStage): Promise<void> {
+    private reshuffle(move: TileMove, stage: TurnStage): Promise<void> {
         const node = stage.nodeOf(move.tileId);
         const from = stage.layout.cellCenter(move.from.col, move.from.row);
         const to = stage.layout.cellCenter(move.to.col, move.to.row);

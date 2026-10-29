@@ -1,17 +1,16 @@
-import { BurnWave } from '../../../core/burn/BurnResolver';
-import { Texts } from '../../Texts';
+import { BlastWave } from '../../../core/burn/BurnResolver';
 import { Feel } from '../Feel';
+import { chainWeight } from '../Impact';
 import { popWave, PopStyles } from '../PopMotion';
 import { TileStage } from '../TileStage';
 import { Timings } from '../Timings';
-import { BlastPresenter } from './BlastPresenters';
+import { BlastLook } from './BurnLooks';
 
-/** The whole board goes: a flash, the loudest praise and a wave of pops rolling out from the origin. */
-export class FieldBlast implements BlastPresenter {
-    play(wave: BurnWave, stage: TileStage): Promise<void> {
+/** The whole board goes: a flash and a wave of pops rolling out from the origin. */
+export class FieldBlast implements BlastLook {
+    play(wave: BlastWave, stage: TileStage, chain: number): Promise<void> {
         stage.effects.flash();
-        stage.effects.praise(Texts.praise.incredible);
-        stage.sound.play('field');
+        stage.sound.play('field', chainWeight(chain));
         stage.shake(Feel.fieldShake);
         return popWave(
             stage,

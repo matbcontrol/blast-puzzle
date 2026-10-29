@@ -1,5 +1,6 @@
 /**
- * All animation timings in seconds, in one place to tune the feel of the game.
+ * Seconds of the tile animations on the stage: the turn steps, the deal and the board shake. Their scales and
+ * strengths live in Feel. A component's own tweens take their seconds from its own Feel object.
  * A plain two-to-four tile turn takes about 0.45 s from the tap until input unlocks.
  */
 export const Timings = {
@@ -10,6 +11,9 @@ export const Timings = {
     /** Tiles hit by an explosion pop almost at once. */
     hitSwell: 0.03,
     hitPop: 0.1,
+    /** A leftover move picks its tile with a bright pop before the super tile appears there. */
+    bonusSwell: 0.09,
+    bonusPop: 0.1,
     waveGap: 0.06,
     rocketPerCell: 0.04,
     bombRing: 0.035,
@@ -23,17 +27,12 @@ export const Timings = {
     landSettle: 0.09,
     refillColumnStagger: 0.012,
     refillRowStagger: 0.02,
+    /** The deal at level start: columns land left to right, each from the bottom up. */
+    dealColumnStagger: 0.016,
+    dealRowStagger: 0.005,
     swap: 0.3,
     shuffleGather: 0.25,
     shuffleHold: 0.06,
     shuffleScatter: 0.32,
-    reject: 0.24,
     shake: 0.3,
-    targetPulse: 0.7,
-    boosterPulse: 0.8,
-    hudBump: 0.2,
-    popupFadeIn: 0.2,
-    popupPop: 0.35,
-    /** Long enough to swallow the second tap of a double tap on the restart button. */
-    popupFadeOut: 0.3,
 };

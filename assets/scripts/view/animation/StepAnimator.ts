@@ -1,5 +1,5 @@
 import { TurnStep } from '../../core/game/TurnStep';
-import { TileStage } from './TileStage';
+import { TurnStage } from './TileStage';
 
 export type StepType = TurnStep['type'];
 export type StepOfType<K extends StepType> = Extract<TurnStep, { type: K }>;
@@ -7,7 +7,7 @@ export type StepOfType<K extends StepType> = Extract<TurnStep, { type: K }>;
 /** Plays one kind of turn step. A new step type means a new animator, the player stays untouched. */
 export interface StepAnimator<K extends StepType = StepType> {
     readonly type: K;
-    play(step: StepOfType<K>, stage: TileStage): Promise<void>;
+    play(step: StepOfType<K>, stage: TurnStage): Promise<void>;
 }
 
 /**

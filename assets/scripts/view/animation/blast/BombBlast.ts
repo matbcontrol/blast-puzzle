@@ -1,14 +1,15 @@
 import { GridPos } from '../../../core/board/GridPos';
-import { BurnWave } from '../../../core/burn/BurnResolver';
+import { BlastWave } from '../../../core/burn/BurnResolver';
 import { Feel } from '../Feel';
+import { chainWeight } from '../Impact';
 import { popWave, PopStyles } from '../PopMotion';
 import { TileStage } from '../TileStage';
 import { Timings } from '../Timings';
-import { BlastPresenter } from './BlastPresenters';
+import { BlastLook } from './BurnLooks';
 
 /** A shockwave from the origin, the tiles pop ring by ring, and the board shakes hard. */
-export class BombBlast implements BlastPresenter {
-    play(wave: BurnWave, stage: TileStage): Promise<void> {
+export class BombBlast implements BlastLook {
+    play(wave: BlastWave, stage: TileStage, chain: number): Promise<void> {
         const layout = stage.layout;
         // Bombs burn a square, so a ring is every cell at the same Chebyshev distance.
         const ringOf = (at: GridPos) =>
@@ -18,7 +19,7 @@ export class BombBlast implements BlastPresenter {
         const reach = (rings + 0.5) * Math.max(layout.stepX, layout.stepY);
 
         stage.effects.shockwave(layout.cellCenter(wave.origin.col, wave.origin.row), reach);
-        stage.sound.play('bomb');
+        stage.sound.play('bomb', chainWeight(chain));
         stage.shake(Feel.bombShake);
         return popWave(stage, wave, (at) => ringOf(at) * Timings.bombRing, PopStyles.hit, Feel.hitBurst);
     }

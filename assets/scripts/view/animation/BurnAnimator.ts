@@ -1,75 +1,82 @@
-import { GridPos } from '../../core/board/GridPos';
-import { BurnWave } from '../../core/burn/BurnResolver';
-import { BurnStep } from '../../core/game/TurnStep';
+import { BlastWave, BurnWave } from '../../core/burn/BurnResolver';
+import { BlastBurn, BurnPoints, BurnStep, GroupBurn } from '../../core/game/TurnStep';
 import { BoardLayout, Point } from '../BoardLayout';
-import { Texts } from '../Texts';
-import { BlastPresenters } from './blast/BlastPresenters';
-import { collapseGroup } from './GroupCollapse';
+import { BlastLooks, GroupLook } from './blast/BurnLooks';
+import { chainShake } from './Impact';
+import { blastPraise } from './Praise';
 import { StepAnimator } from './StepAnimator';
-import { TileStage } from './TileStage';
+import { TurnStage } from './TileStage';
 import { Timings } from './Timings';
 
-/** The first rule a group reaches names it, so the biggest come first. */
-const GROUP_PRAISE = [
-    { minTiles: 10, text: Texts.praise.awesome },
-    { minTiles: 8, text: Texts.praise.great },
-    { minTiles: 6, text: Texts.praise.good },
-];
-
 /**
- * Plays the waves of a burn in order, each with the look of whatever fired it, then shows the points.
- * A group that earned a super tile collapses into its cell instead of popping in place.
+ * Plays a burn with the look of what started it, then shows its points. A chain of explosions plays one after
+ * another, and every explosion it adds shakes harder and may earn a word of praise.
  */
 export class BurnAnimator implements StepAnimator<'burn'> {
     readonly type = 'burn';
 
-    constructor(private readonly blasts: BlastPresenters) {}
+    constructor(
+        private readonly group: GroupLook,
+        private readonly blasts: BlastLooks,
+    ) {}
 
-    async play(step: BurnStep, stage: TileStage): Promise<void> {
+    play(step: BurnStep, stage: TurnStage): Promise<void> {
+        return step.cause === 'group' ? this.playGroup(step, stage) : this.playBlast(step, stage);
+    }
+
+    private async playGroup(step: GroupBurn & BurnPoints, stage: TurnStage): Promise<void> {
+        const group = step.group;
+        if (group.tiles.length === 0) {
+            return;
+        }
+        const into = step.collapseTo;
+        if (into === null) {
+            await this.group.pop(group, stage);
+        } else {
+            await this.group.collapse(group, into, stage);
+        }
+        const at = into === null ? centerOf(group, stage.layout) : stage.layout.cellCenter(into.col, into.row);
+        showPoints(stage, at, step.points, 1);
+    }
+
+    private async playBlast(step: BlastBurn & BurnPoints, stage: TurnStage): Promise<void> {
         const waves = step.waves.filter((wave) => wave.tiles.length > 0);
         if (waves.length === 0) {
             return;
         }
-        if (step.fromGroup) {
-            praiseGroup(stage, waves[0].tiles.length);
-        }
+        const kinds = waves.map((wave) => wave.blast);
         for (let i = 0; i < waves.length; i++) {
             if (i > 0) {
                 await stage.wait(Timings.waveGap);
+                stage.shake(chainShake(i + 1));
             }
-            await this.playWave(waves[i], step.collapseTo, stage);
+            const praise = blastPraise(kinds, i);
+            if (praise !== null) {
+                stage.effects.praise(praise);
+            }
+            await this.playWave(waves[i], stage, i + 1);
         }
-        if (step.points > 0) {
-            stage.effects.scorePopup(scorePoint(step.collapseTo, waves[0], stage.layout), step.points);
-        }
+        showPoints(stage, centerOf(waves[0], stage.layout), step.points, waves.length);
     }
 
-    private playWave(wave: BurnWave, collapseTo: GridPos | null, stage: TileStage): Promise<void> {
-        // The tapped group is the only wave without a blast, and only it can turn into a super tile.
-        if (wave.blast === null && collapseTo !== null) {
-            return collapseGroup(wave, collapseTo, stage);
-        }
-        return this.blasts.forWave(wave).play(wave, stage);
+    private playWave(wave: BlastWave, stage: TurnStage, chain: number): Promise<void> {
+        return this.blasts[wave.blast].play(wave, stage, chain);
     }
 }
 
-function praiseGroup(stage: TileStage, size: number): void {
-    const rule = GROUP_PRAISE.filter((praise) => size >= praise.minTiles)[0];
-    if (rule !== undefined) {
-        stage.effects.praise(rule.text);
+function showPoints(stage: TurnStage, at: Point, points: number, chain: number): void {
+    if (points > 0) {
+        stage.effects.scorePopup(at, points, chain);
     }
 }
 
-function scorePoint(collapseTo: GridPos | null, first: BurnWave, layout: BoardLayout): Point {
-    if (collapseTo !== null) {
-        return layout.cellCenter(collapseTo.col, collapseTo.row);
-    }
+function centerOf(wave: BurnWave, layout: BoardLayout): Point {
     let x = 0;
     let y = 0;
-    for (const burned of first.tiles) {
+    for (const burned of wave.tiles) {
         const center = layout.cellCenter(burned.at.col, burned.at.row);
         x += center.x;
         y += center.y;
     }
-    return { x: x / first.tiles.length, y: y / first.tiles.length };
+    return { x: x / wave.tiles.length, y: y / wave.tiles.length };
 }

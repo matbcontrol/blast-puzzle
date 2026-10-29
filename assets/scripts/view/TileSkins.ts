@@ -1,3 +1,4 @@
+import { SuperKind } from '../core/tiles/SuperKinds';
 import { Tile } from '../core/tiles/Tile';
 
 const { ccclass, property } = cc._decorator;
@@ -21,14 +22,15 @@ export class TileSkins extends cc.Component {
     supers: SuperTileSkin[] = [];
 
     frameFor(tile: Tile): cc.SpriteFrame {
-        if (tile.color !== null) {
-            return this.colors[tile.color];
-        }
+        return tile.color !== null ? this.colors[tile.color] : this.superFrame(tile.requireSuperKind());
+    }
+
+    superFrame(kind: SuperKind): cc.SpriteFrame {
         for (const skin of this.supers) {
-            if (skin.kind === tile.superKind) {
+            if (skin.kind === kind) {
                 return skin.frame;
             }
         }
-        throw new Error(`No sprite for super tile "${tile.superKind}"`);
+        throw new Error(`No sprite for super tile "${kind}"`);
     }
 }

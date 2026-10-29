@@ -1,21 +1,22 @@
 import { GridPos } from '../../../core/board/GridPos';
-import { BurnWave } from '../../../core/burn/BurnResolver';
+import { BlastWave } from '../../../core/burn/BurnResolver';
 import { Point } from '../../BoardLayout';
 import { Feel } from '../Feel';
+import { chainWeight } from '../Impact';
 import { popWave, PopStyles } from '../PopMotion';
 import { TileStage } from '../TileStage';
 import { Timings } from '../Timings';
-import { BlastPresenter } from './BlastPresenters';
+import { BlastLook } from './BurnLooks';
 
 export type RocketAxis = 'row' | 'column';
 
 /** Two rockets fly from the super tile to both ends of its line, and every tile pops as a rocket passes it. */
-export class RocketBlast implements BlastPresenter {
+export class RocketBlast implements BlastLook {
     constructor(private readonly axis: RocketAxis) {}
 
-    play(wave: BurnWave, stage: TileStage): Promise<void> {
+    play(wave: BlastWave, stage: TileStage, chain: number): Promise<void> {
         const from = stage.layout.cellCenter(wave.origin.col, wave.origin.row);
-        stage.sound.play('rocket');
+        stage.sound.play('rocket', chainWeight(chain));
         stage.shake(Feel.rocketShake);
         this.launch(stage, from, -1);
         this.launch(stage, from, 1);
@@ -36,7 +37,7 @@ export class RocketBlast implements BlastPresenter {
             ? { x: (direction * layout.width) / 2, y: from.y }
             : { x: from.x, y: (direction * layout.height) / 2 };
         const cells = horizontal ? Math.abs(to.x - from.x) / layout.stepX : Math.abs(to.y - from.y) / layout.stepY;
-        void stage.effects.rocket(from, to, cells * Timings.rocketPerCell);
+        stage.effects.rocket(from, to, cells * Timings.rocketPerCell);
     }
 
     private cellsBetween(origin: GridPos, at: GridPos): number {
