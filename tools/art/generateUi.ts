@@ -135,44 +135,50 @@ function soundButton(name: string, glyph: Shape): UiArt {
     };
 }
 
-const STAR_SIZE = 64;
-const STAR_RADIUS = 25;
-const STAR_ROUNDING = 3;
-const STAR_RIM = 2.5;
 // The bottom tips reach only cos 36° of the radius, so the centre sits low to balance the star in its square.
 const STAR_TIP_DROP = Math.cos(Math.PI / 5);
-const STAR_X = STAR_SIZE / 2;
-const STAR_Y = STAR_SIZE / 2 + 1.5;
-const STAR_POINTS = starPolygon(STAR_X, STAR_Y, STAR_RADIUS, STAR_RADIUS * 0.5, 5);
-const starDistance = (x: number, y: number): number => polygonDistance(x, y, STAR_POINTS) - STAR_ROUNDING;
-const STAR_TOP = STAR_Y - STAR_RADIUS - STAR_ROUNDING;
-const STAR_BOTTOM = STAR_Y + STAR_RADIUS * STAR_TIP_DROP + STAR_ROUNDING;
 
-/** Both stars share the outline and the untrimmed square, so swapping the frames moves nothing. */
-function star(name: string, filled: boolean): UiArt {
+/**
+ * Both stars of a pair share the outline and the untrimmed square, so swapping the frames moves nothing.
+ * The design is 64 px; scale 2 draws the result panel's large stars, and the HUD keeps scale 1, since
+ * the textures have no mipmaps and a 128 px star shrunk to 44 px loses its rim.
+ */
+function star(name: string, filled: boolean, scale: number): UiArt {
+    const size = 64 * scale;
+    const radius = 25 * scale;
+    const rounding = 3 * scale;
+    const cx = size / 2;
+    const cy = size / 2 + 1.5 * scale;
+    const points = starPolygon(cx, cy, radius, radius * 0.5, 5);
+    const distance = (x: number, y: number): number => polygonDistance(x, y, points) - rounding;
+    const top = cy - radius - rounding;
+    const bottom = cy + radius * STAR_TIP_DROP + rounding;
     return {
         name,
-        width: STAR_SIZE,
-        height: STAR_SIZE,
+        width: size,
+        height: size,
         draw: (canvas) => {
-            const outline = within(starDistance);
-            const body = within(starDistance, -STAR_RIM);
+            const outline = within(distance);
+            const body = within(distance, -2.5 * scale);
             canvas.draw(
-                softEdge((x, y) => starDistance(x, y - 2.5), 4),
+                softEdge((x, y) => distance(x, y - 2.5 * scale), 4 * scale),
                 solid(DROP_SHADOW),
             );
             if (filled) {
-                canvas.draw(covered(outline), vertical(STAR_TOP, STAR_BOTTOM, GOLD.rimTop, GOLD.rimBottom));
-                canvas.draw(covered(body), vertical(STAR_TOP, STAR_BOTTOM, GOLD.bodyTop, GOLD.bodyBottom));
+                canvas.draw(covered(outline), vertical(top, bottom, GOLD.rimTop, GOLD.rimBottom));
+                canvas.draw(covered(body), vertical(top, bottom, GOLD.bodyTop, GOLD.bodyBottom));
                 canvas.draw(
-                    covered(intersection(body, ellipse(STAR_X, STAR_Y - 9, 15, 11))),
-                    vertical(STAR_TOP, STAR_Y, GLOSS_TOP, GLOSS_BOTTOM),
+                    covered(intersection(body, ellipse(cx, cy - 9 * scale, 15 * scale, 11 * scale))),
+                    vertical(top, cy, GLOSS_TOP, GLOSS_BOTTOM),
                 );
             } else {
-                canvas.draw(covered(outline), vertical(STAR_TOP, STAR_BOTTOM, HUD.rimTop, HUD.rimBottom));
-                canvas.draw(covered(body), vertical(STAR_TOP, STAR_BOTTOM, HUD.wellTop, HUD.wellBottom));
+                canvas.draw(covered(outline), vertical(top, bottom, HUD.rimTop, HUD.rimBottom));
+                canvas.draw(covered(body), vertical(top, bottom, HUD.wellTop, HUD.wellBottom));
                 // Shading the top edge inside makes the slot read as pressed into the frame.
-                canvas.draw(covered(intersection(body, (x, y) => !body(x, y - INSET_SHADOW))), solid(HUD.innerShadow));
+                canvas.draw(
+                    covered(intersection(body, (x, y) => !body(x, y - INSET_SHADOW * scale))),
+                    solid(HUD.innerShadow),
+                );
             }
         },
     };
@@ -282,8 +288,10 @@ const toastPlate: UiArt = {
 const ART: ReadonlyArray<UiArt> = [
     soundButton('sound_on', union(SPEAKER, WAVES)),
     soundButton('sound_off', union(SPEAKER, CROSS)),
-    star('star_full', true),
-    star('star_empty', false),
+    star('star_full', true, 1),
+    star('star_empty', false, 1),
+    star('star_full_large', true, 2),
+    star('star_empty_large', false, 2),
     progressTrack,
     progressFill,
     toastPlate,
@@ -305,7 +313,7 @@ function main(): void {
         });
         const size = `${art.width}x${art.height}`;
         console.log(
-            `${art.name.padEnd(15)} ${size.padStart(7)} ${png.length.toString().padStart(6)} B  frame ${ids.frame}${changed ? '' : '  (same)'}`,
+            `${art.name.padEnd(17)} ${size.padStart(7)} ${png.length.toString().padStart(6)} B  frame ${ids.frame}${changed ? '' : '  (same)'}`,
         );
     });
 }
