@@ -36,7 +36,8 @@ export const Texts = {
     goal: (score: number, moves: number): string =>
         `Набери ${score} ${plural(score, 'очко', 'очка', 'очков')}\nза ${moveCount(moves)}`,
     lowMoves: (moves: number): string => `${plural(moves, 'Остался', 'Осталось', 'Осталось')} ${moveCount(moves)}!`,
-    finale: (moves: number): string => `Бонус за ${moveCount(moves)}!`,
+    /** With no move left the round is only the super tiles the player saved. */
+    finale: (moves: number): string => (moves > 0 ? `Бонус за ${moveCount(moves)}!` : 'Бонус!'),
     aimCaption: (boosterId: string): string => AIM_CAPTIONS[boosterId] || 'Выбери клетку',
 };
 

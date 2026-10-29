@@ -82,7 +82,10 @@ export interface ResultPresenter {
 export interface BannerPresenter {
     /** Announces the goal of the level. Resolves once the banner is gone. */
     showGoal(progress: ProgressSnapshot): Promise<void>;
-    /** Announces that the moves left turn into bonus super tiles. Resolves once the banner is gone. */
+    /**
+     * Announces the bonus round. movesLeft may be 0 when only the super tiles saved on the board go off.
+     * Resolves once the banner is gone.
+     */
     showFinale(movesLeft: number): Promise<void>;
     /** Sends the banner away early; its promise still resolves. Does nothing when no banner is up. */
     dismiss(): void;

@@ -39,7 +39,7 @@ function playOnce(config: LevelConfig, seed: number, strategy: Strategy) {
         game.tap(strategy(game.currentBoard, pick));
     }
     while (game.playFinale() !== null) {
-        // Every move left after a win goes off as a bonus rocket.
+        // Saved super tiles go off first, then every move left becomes a bonus rocket.
     }
     return game.progressSnapshot;
 }

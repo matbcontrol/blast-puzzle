@@ -18,7 +18,7 @@ export const ControllerFeel = {
     hintDelay: 5,
     /** A tap made while a turn animates is replayed if the board rests within this time, dropped after it. */
     tapMemory: 0.3,
-    /** Rest after each bonus move, so every one of them reads on its own. */
+    /** Rest after each turn of the bonus round, so every blast reads on its own. */
     finalePause: 0.15,
     lowMoves: 5,
 };
@@ -207,7 +207,7 @@ export class GameController {
             if (run.cancelled) {
                 return;
             }
-            verdict = await this.playBonusMoves(run, game, progress);
+            verdict = await this.playBonusRound(run, game, progress);
             if (run.cancelled) {
                 return;
             }
@@ -215,8 +215,8 @@ export class GameController {
         this.tryView('Result popup failed', () => this.views.result.show(verdict));
     }
 
-    /** Every move left after the win goes off as a bonus super tile, one turn at a time. */
-    private async playBonusMoves(run: Run, game: BlastGame, won: ProgressSnapshot): Promise<ProgressSnapshot> {
+    /** The bonus round, one turn at a time: saved super tiles go off first, then a bonus super tile per move left. */
+    private async playBonusRound(run: Run, game: BlastGame, won: ProgressSnapshot): Promise<ProgressSnapshot> {
         let turn = game.playFinale();
         if (turn !== null) {
             await this.awaitView('Finale banner failed', () => this.views.banner.showFinale(won.movesLeft));

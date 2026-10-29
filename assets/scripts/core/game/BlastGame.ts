@@ -139,15 +139,16 @@ export class BlastGame {
     }
 
     /**
-     * Spends one move left after a win on a bonus super tile that fires at once. Call it until it returns null:
-     * when no move is left, when the level was not won, or in the rare case no regular tile is left to turn.
+     * Plays the next turn of the bonus round after a win: first every super tile left on the board goes off,
+     * free, then each move left becomes a bonus super tile that fires at once. Call it until it returns null:
+     * when the round is over or the level was not won.
      */
     playFinale(): TurnResult | null {
-        if (this.progress.status !== 'won' || this.progress.movesLeft <= 0) {
+        if (this.progress.status !== 'won') {
             return null;
         }
-        const action = this.finale.create(this.board);
-        return action === null ? null : this.play(action, true);
+        const move = this.finale.next(this.board, this.progress.movesLeft);
+        return move === null ? null : this.play(move.action, move.spendsMove);
     }
 
     private get isPlaying(): boolean {

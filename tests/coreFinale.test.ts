@@ -12,9 +12,9 @@ import { alwaysRed, testConfig, testResolver } from './helpers/fixtures';
 import { firstBurn, stepTypes } from './helpers/steps';
 
 /** Won on the first tap (30 points) with two moves to spare. */
-function wonGame(overrides: Partial<LevelConfig> = {}): BlastGame {
+function wonGame(overrides: Partial<LevelConfig> = {}, layout = ['RRB', 'GBG']): BlastGame {
     const config = testConfig({ cols: 3, rows: 2, targetScore: 30, starScores: [100, 200], moves: 3, ...overrides });
-    const game = createBlastGame(config, alwaysRed(), boardFromText(['RRB', 'GBG']));
+    const game = createBlastGame(config, alwaysRed(), boardFromText(layout));
     game.tap(gridPos(0, 1));
     return game;
 }
@@ -106,7 +106,29 @@ describe('BlastGame: finale', () => {
         expect(JSON.stringify(finaleOf(6))).not.toBe(JSON.stringify(first));
     });
 
-    it('has nothing to turn on a board of super tiles only', () => {
+    it('fires the super tiles the player saved before any bonus move, without spending a move', () => {
+        const game = wonGame({}, ['RRB', 'GB-']);
+        const saved = gridPos(2, 0);
+
+        const first = game.playFinale()!;
+        const burn = firstBurn(first);
+
+        expect(stepTypes(first)[0]).toBe('burn');
+        expect(burn.cause === 'blast' && burn.waves[0]).toMatchObject({ origin: saved, blast: SuperKinds.Row });
+        expect(first.progress.movesLeft).toBe(2);
+        expect(game.currentBoard.cellsWhere((tile) => tile.isSuper)).toEqual([]);
+        expect(playWholeFinale(game).map((result) => result.steps[0].type)).toEqual(['bonusSuper', 'bonusSuper']);
+    });
+
+    it('still fires a saved super tile when the win took the last move', () => {
+        const game = wonGame({ moves: 1 }, ['RRB', 'GB-']);
+        expect(game.progressSnapshot).toMatchObject({ status: 'won', movesLeft: 0 });
+
+        expect(playWholeFinale(game)).toHaveLength(1);
+        expect(game.currentBoard.cellsWhere((tile) => tile.isSuper)).toEqual([]);
+    });
+
+    it('ends the round when no super tile and no move is left, or nothing is left to turn', () => {
         const finale = new FinaleActionFactory(
             alwaysRed(),
             [SuperKinds.Row],
@@ -114,6 +136,9 @@ describe('BlastGame: finale', () => {
             testResolver(),
         );
 
-        expect(finale.create(boardFromText(['-|', '*#']))).toBeNull();
+        expect(finale.next(boardFromText(['RG', 'BY']), 0)).toBeNull();
+        expect(finale.next(boardFromText(['..', '..']), 3)).toBeNull();
+        expect(finale.next(boardFromText(['-G', 'BY']), 0)).toMatchObject({ spendsMove: false });
+        expect(finale.next(boardFromText(['RG', 'BY']), 1)).toMatchObject({ spendsMove: true });
     });
 });

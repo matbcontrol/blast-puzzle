@@ -578,6 +578,18 @@ describe('GameController: end of the level', () => {
         expect(views.result.shown!.stars).toBe(1);
     });
 
+    it('fires a super tile saved on the board even when the win took the last move', async () => {
+        const { views, clock } = await setup(['RRB', 'GBG', 'BG-'], { targetScore: 30, moves: 1 });
+
+        views.board.tap(PAIR[0]);
+        await views.board.finish();
+        expect(views.banner.finales).toEqual([0]);
+
+        await playBonusRound(views, clock);
+        expect(views.board.played).toHaveLength(2);
+        expect(views.result.shown!.movesLeft).toBe(0);
+    });
+
     it('shows a loss without a celebration', async () => {
         const { views } = await setup(LAYOUT, { moves: 1 });
 
