@@ -6,6 +6,10 @@ build/
 profiles/
 native/
 
+# Dashboard copies these from the editor; the fixed typings live in types/creator.d.ts
+/creator.d.ts
+/jsconfig.json
+
 # Tooling
 node_modules/
 coverage/

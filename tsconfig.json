@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "lib": ["es2015", "es2017", "dom"],
+    "lib": [
+      "es2015",
+      "es2017",
+      "dom"
+    ],
     "target": "es5",
     "experimentalDecorators": true,
     "strict": true,
@@ -11,6 +15,16 @@
     "outDir": "temp/vscode-dist",
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["assets/scripts/**/*.ts", "creator.d.ts"],
-  "exclude": ["node_modules", "library", "local", "temp", "build", "settings"]
+  "include": [
+    "assets/scripts/**/*.ts",
+    "types/creator.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "library",
+    "local",
+    "temp",
+    "build",
+    "settings"
+  ]
 }

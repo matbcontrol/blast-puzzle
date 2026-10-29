@@ -28,6 +28,6 @@ export default tseslint.config(
         rules: { 'no-console': 'off' },
     },
     {
-        ignores: ['library/', 'temp/', 'local/', 'build/', 'node_modules/', 'creator.d.ts', '*.js'],
+        ignores: ['library/', 'temp/', 'local/', 'build/', 'node_modules/', 'types/', 'creator.d.ts', '*.js'],
     },
 );
