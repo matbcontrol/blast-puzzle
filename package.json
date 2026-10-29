@@ -1,0 +1,25 @@
+{
+  "name": "blast-puzzle",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Blast puzzle prototype on Cocos Creator 2.4 + TypeScript",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint assets/scripts tests",
+    "format": "prettier --write \"assets/scripts/**/*.ts\" \"tests/**/*.ts\"",
+    "check": "npm run typecheck && npm run lint && npm test"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.14.0",
+    "@types/jest": "^29.5.14",
+    "eslint": "^9.14.0",
+    "eslint-config-prettier": "^9.1.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.3.3",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.14.0"
+  }
+}

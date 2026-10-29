@@ -1,0 +1,17 @@
+# Cocos Creator
+library/
+temp/
+local/
+build/
+profiles/
+native/
+
+# Tooling
+node_modules/
+coverage/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

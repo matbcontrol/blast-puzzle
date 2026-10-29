@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "es2019",
+    "types": ["jest"]
+  },
+  "include": ["assets/scripts/core/**/*.ts", "tests/**/*.ts"]
+}
