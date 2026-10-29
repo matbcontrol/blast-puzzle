@@ -1,4 +1,5 @@
 import { Signal } from '../app/Signal';
+import { Timings } from './animation/Timings';
 
 const { ccclass, property } = cc._decorator;
 
@@ -33,7 +34,12 @@ export class BoosterButton extends cc.Component {
         this.node.setScale(1);
         if (selected) {
             cc.tween(this.node)
-                .repeatForever(cc.tween().to(0.4, { scale: 1.08 }).to(0.4, { scale: 1 }))
+                .repeatForever(
+                    cc
+                        .tween()
+                        .to(Timings.boosterPulse / 2, { scale: 1.08 })
+                        .to(Timings.boosterPulse / 2, { scale: 1 }),
+                )
                 .start();
         }
     }

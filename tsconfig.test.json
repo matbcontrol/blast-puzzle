@@ -12,6 +12,7 @@
     "assets/scripts/app/**/*.ts",
     "assets/scripts/view/BoardLayout.ts",
     "tests/**/*.ts",
-    "tools/**/*.ts"
+    "tools/**/*.ts",
+    "types/creator.d.ts"
   ]
 }

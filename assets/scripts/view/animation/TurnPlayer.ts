@@ -2,8 +2,11 @@ import { TurnStep } from '../../core/game/TurnStep';
 import { StepAnimator, StepType } from './StepAnimator';
 import { TileStage } from './TileStage';
 
-/** Steps that start together with the previous one: new tiles fall in while old ones are still falling. */
-const RUNS_WITH_PREVIOUS: StepType[] = ['refill'];
+/**
+ * A step listed here starts together with the previous one when that one is of the given type:
+ * new tiles fall in while old ones are still falling. Any other step waits for everything before it.
+ */
+const STARTS_WITH: { readonly [K in StepType]?: StepType } = { refill: 'fall' };
 
 export class TurnPlayer {
     private readonly animators = new Map<StepType, StepAnimator>();
@@ -17,12 +20,14 @@ export class TurnPlayer {
 
     async play(steps: ReadonlyArray<TurnStep>): Promise<void> {
         let running: Array<Promise<void>> = [];
+        let previous: StepType | null = null;
         for (const step of steps) {
-            if (RUNS_WITH_PREVIOUS.indexOf(step.type) < 0) {
+            if (STARTS_WITH[step.type] !== previous) {
                 await Promise.all(running);
                 running = [];
             }
             running.push(this.animatorFor(step.type).play(step, this.stage));
+            previous = step.type;
         }
         await Promise.all(running);
     }

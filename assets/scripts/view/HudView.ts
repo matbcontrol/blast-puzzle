@@ -1,5 +1,6 @@
 import { HudPresenter } from '../app/GameViews';
 import { ProgressSnapshot } from '../core/rules/LevelProgress';
+import { Timings } from './animation/Timings';
 import { Texts } from './Texts';
 
 const { ccclass, property } = cc._decorator;
@@ -49,6 +50,9 @@ export class HudView extends cc.Component implements HudPresenter {
     private bump(node: cc.Node): void {
         cc.Tween.stopAllByTarget(node);
         node.setScale(1);
-        cc.tween(node).to(0.08, { scale: 1.2 }).to(0.12, { scale: 1 }).start();
+        cc.tween(node)
+            .to(Timings.hudBump * 0.4, { scale: 1.2 })
+            .to(Timings.hudBump * 0.6, { scale: 1 })
+            .start();
     }
 }

@@ -12,7 +12,7 @@ export class SwapAnimator implements StepAnimator<'swap'> {
                 const node = stage.nodeOf(move.tileId);
                 const target = stage.layout.cellCenter(move.to.col, move.to.row);
                 stage.sortByRow(node, move.to.row);
-                node.zIndex += 1000;
+                stage.bringToFront(node);
                 return Promise.all([
                     playTween(
                         node,

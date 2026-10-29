@@ -13,4 +13,11 @@ export const Timings = {
     shuffle: 0.5,
     reject: 0.24,
     shake: 0.3,
+    targetPulse: 0.7,
+    boosterPulse: 0.8,
+    hudBump: 0.2,
+    popupFadeIn: 0.2,
+    popupPop: 0.35,
+    /** Long enough to swallow the second tap of a double tap on the restart button. */
+    popupFadeOut: 0.3,
 };

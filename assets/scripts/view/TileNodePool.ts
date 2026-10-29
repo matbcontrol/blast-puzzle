@@ -1,8 +1,9 @@
 import { Tile } from '../core/tiles/Tile';
+import { TILE_BEVEL, TILE_FACE } from './TileArt';
 import { TileSkins } from './TileSkins';
 
-/** The sprite is 100x112: a 100x100 face plus a 12 px top bevel that overlaps the row above. */
-const TILE_ANCHOR_Y = 50 / 112;
+/** Anchored at the center of the face, so the bevel sticks out above the cell. */
+const TILE_ANCHOR_Y = TILE_FACE / 2 / (TILE_FACE + TILE_BEVEL);
 
 /**
  * Tiles are plain sprite nodes built in code, so there is no prefab to keep in sync.

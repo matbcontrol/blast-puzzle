@@ -1,6 +1,6 @@
 import { LoseReason } from '../core/rules/LevelProgress';
 
-/** Player-facing strings in one place, ready to be swapped for a localization table. */
+/** Strings set from code, ready to be swapped for a localization table. Static labels live in the scene. */
 export const Texts = {
     won: 'ПОБЕДА!',
     lost: 'ПОРАЖЕНИЕ',
@@ -15,5 +15,4 @@ export const Texts = {
                 return '';
         }
     },
-    playAgain: 'ЕЩЁ РАЗ',
 };

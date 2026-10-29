@@ -1,6 +1,7 @@
 import { ResultPresenter } from '../app/GameViews';
 import { Signal } from '../app/Signal';
 import { ProgressSnapshot } from '../core/rules/LevelProgress';
+import { Timings } from './animation/Timings';
 import { Texts } from './Texts';
 
 const { ccclass, property } = cc._decorator;
@@ -21,6 +22,8 @@ export class ResultPopup extends cc.Component implements ResultPresenter {
 
     readonly restartRequested = new Signal<void>();
 
+    private closing = false;
+
     onLoad(): void {
         this.restartButton.on(cc.Node.EventType.TOUCH_END, this.onRestart, this);
     }
@@ -37,18 +40,35 @@ export class ResultPopup extends cc.Component implements ResultPresenter {
             ? Texts.score(progress.score, progress.targetScore)
             : Texts.loseReason(progress.loseReason);
 
+        cc.Tween.stopAllByTarget(this.node);
+        this.closing = false;
         this.node.active = true;
         this.node.opacity = 0;
         this.panel.setScale(0.6);
-        cc.tween(this.node).to(0.2, { opacity: 255 }).start();
-        cc.tween(this.panel).to(0.35, { scale: 1 }, { easing: 'backOut' }).start();
+        cc.tween(this.node).to(Timings.popupFadeIn, { opacity: 255 }).start();
+        cc.tween(this.panel).to(Timings.popupPop, { scale: 1 }, { easing: 'backOut' }).start();
     }
 
+    /** Stays active while it fades out, so BlockInputEvents keeps the rest of a double tap off the new board. */
     hide(): void {
-        this.node.active = false;
+        if (!this.node.active || this.closing) {
+            return;
+        }
+        this.closing = true;
+        cc.Tween.stopAllByTarget(this.node);
+        cc.tween(this.node)
+            .to(Timings.popupFadeOut, { opacity: 0 })
+            .call(() => {
+                this.closing = false;
+                this.node.active = false;
+            })
+            .start();
     }
 
     private onRestart(): void {
-        this.restartRequested.dispatch();
+        // A second tap during the fade must not start yet another game.
+        if (!this.closing) {
+            this.restartRequested.dispatch();
+        }
     }
 }

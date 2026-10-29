@@ -12,8 +12,9 @@ export class BurnAnimator implements StepAnimator<'burn'> {
     readonly type = 'burn';
 
     async play(step: BurnStep, stage: TileStage): Promise<void> {
-        for (let i = 0; i < step.waves.length; i++) {
-            const wave = step.waves[i];
+        const waves = step.waves.filter((wave) => wave.tiles.length > 0);
+        for (let i = 0; i < waves.length; i++) {
+            const wave = waves[i];
             if (i > 0) {
                 await stage.wait(Timings.waveGap);
             }
@@ -27,7 +28,7 @@ export class BurnAnimator implements StepAnimator<'burn'> {
     private burnTile(stage: TileStage, burned: BurnedTile, origin: GridPos): Promise<void> {
         const node = stage.nodeOf(burned.tile.id);
         const delay = stage.layout.distance(origin, burned.at) * Timings.burnRipplePerCell;
-        node.zIndex += 1000;
+        stage.bringToFront(node);
         return playTween(
             node,
             cc
