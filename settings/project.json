@@ -5,7 +5,6 @@
   "fit-width": true,
   "fit-height": true,
   "excluded-modules": [
-    "Audio",
     "AudioSource",
     "Button",
     "Collider",
