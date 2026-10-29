@@ -8,18 +8,31 @@ import { ProgressSnapshot } from '../assets/scripts/core/rules/LevelProgress';
 import { boardFromText } from './helpers/boardText';
 import { alwaysRed, testConfig } from './helpers/fixtures';
 
+const flush = async () => {
+    for (let i = 0; i < 5; i++) {
+        await Promise.resolve();
+    }
+};
+
 class FakeBoard implements BoardPresenter {
     readonly cellTapped = new Signal<GridPos>();
     readonly played: Array<ReadonlyArray<TurnStep>> = [];
     readonly rejected: GridPos[] = [];
     marked: ReadonlyArray<GridPos> = [];
+    renders = 0;
     private finishAnimation: () => void = () => {};
+    private failAnimation: (error: Error) => void = () => {};
 
-    render(): void {}
+    render(): void {
+        this.renders++;
+    }
 
     play(steps: ReadonlyArray<TurnStep>): Promise<void> {
         this.played.push(steps);
-        return new Promise((resolve) => (this.finishAnimation = resolve));
+        return new Promise((resolve, reject) => {
+            this.finishAnimation = resolve;
+            this.failAnimation = reject;
+        });
     }
 
     rejectTap(at: GridPos): void {
@@ -33,8 +46,12 @@ class FakeBoard implements BoardPresenter {
     /** Lets the pending animation finish and the controller react to it. */
     async finish(): Promise<void> {
         this.finishAnimation();
-        await Promise.resolve();
-        await Promise.resolve();
+        await flush();
+    }
+
+    async crash(): Promise<void> {
+        this.failAnimation(new Error('tween exploded'));
+        await flush();
     }
 }
 
@@ -151,5 +168,18 @@ describe('GameController', () => {
         views.result.restartRequested.dispatch();
         expect(views.result.shown).toBeNull();
         expect(views.hud.last!.score).toBe(0);
+    });
+
+    it('redraws the board from the model and unlocks input when an animation fails', async () => {
+        const { views } = setup(LAYOUT);
+        const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        views.board.cellTapped.dispatch(gridPos(0, 2));
+        await views.board.crash();
+
+        expect(views.board.renders).toBe(2);
+        views.board.cellTapped.dispatch(gridPos(2, 2));
+        expect(views.board.rejected).toHaveLength(1);
+        errorLog.mockRestore();
     });
 });

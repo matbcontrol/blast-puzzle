@@ -88,7 +88,13 @@ export class GameController implements InputContext {
         this.views.board.markTargets([]);
         this.refreshHud();
 
-        await this.views.board.play(result.steps);
+        try {
+            await this.views.board.play(result.steps);
+        } catch (error) {
+            // The model is the source of truth: a broken animation must not leave the game locked.
+            console.error('Turn animation failed, redrawing the board', error);
+            this.views.board.render(this.currentGame().currentBoard);
+        }
 
         if (result.progress.status === 'playing') {
             this.enterIdle();
