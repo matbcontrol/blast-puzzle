@@ -1,5 +1,5 @@
 import { inflateSync } from 'zlib';
-import { crc32, encodePng } from '../tools/art/png';
+import { crc32, encodePng } from '../tools/shared/png';
 
 interface Chunk {
     readonly type: string;

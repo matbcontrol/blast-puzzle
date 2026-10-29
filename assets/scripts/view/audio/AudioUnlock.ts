@@ -11,20 +11,25 @@ export interface GestureSource {
     removeEventListener(type: string, listener: () => void, capture: boolean): void;
 }
 
-// The events browsers accept as user activation for audio. touchstart is not one of them.
+// The events browsers accept as user activation for audio. touchstart and a touch pointerdown are not among them.
 const GESTURES = ['touchend', 'mousedown', 'pointerup', 'keydown'];
 
 /**
  * Browsers keep Web Audio suspended until the first user gesture. The engine would queue every sound
  * asked for until then and fire the whole queue on the next touch, so nothing is played while
  * the context is locked, and the first gesture resumes it.
+ *
+ * The context reports running only a few frames after that gesture, while the game handles the same touch
+ * at once. `resuming` covers that gap, and `onResumed` says when it closes.
  */
 export class AudioUnlock {
     private listening = false;
+    private pending = false;
 
     constructor(
         private readonly contextOf: () => AudioContextLike | null,
         private readonly gestures: GestureSource | null,
+        private readonly onResumed: () => void,
     ) {}
 
     /** Without Web Audio the engine falls back to DOM audio, which handles gestures itself. */
@@ -32,6 +37,11 @@ export class AudioUnlock {
         const context = this.contextOf();
         // A context that has run before was interrupted (a call, the app in background); the engine resumes those.
         return context === null || context.state === 'running' || context.currentTime > 0;
+    }
+
+    /** A gesture asked the context to resume and the browser has not confirmed it yet. */
+    get resuming(): boolean {
+        return this.pending;
     }
 
     start(): void {
@@ -59,13 +69,29 @@ export class AudioUnlock {
             this.stop();
             return;
         }
+        let resumed: Promise<void> | undefined;
         try {
-            context.resume().then(
-                () => this.stop(),
-                () => undefined,
-            );
+            resumed = context.resume();
         } catch {
-            // Old WebKit may not return a promise; the next gesture tries again.
+            // Old WebKit has no resume() or returns no promise; the next gesture tries again.
         }
+        if (resumed === undefined) {
+            return;
+        }
+        this.pending = true;
+        resumed.then(this.onResume, this.onRefuse);
+    };
+
+    // One tap fires pointerup and touchend, so two resumes can settle; the first one reports.
+    private readonly onResume = (): void => {
+        this.stop();
+        if (this.pending) {
+            this.pending = false;
+            this.onResumed();
+        }
+    };
+
+    private readonly onRefuse = (): void => {
+        this.pending = false;
     };
 }

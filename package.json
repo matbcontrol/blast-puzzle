@@ -9,9 +9,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint assets/scripts tests tools",
-    "format": "prettier --write \"assets/scripts/**/*.ts\" \"tests/**/*.ts\"",
+    "format": "prettier --write \"assets/scripts/**/*.ts\" \"tests/**/*.ts\" \"tools/**/*.ts\"",
     "check": "npm run typecheck && npm run typecheck:tests && npm run lint && npm test",
-    "simulate": "tsx tools/simulate.ts"
+    "simulate": "tsx tools/simulate.ts",
+    "art": "tsx tools/art/generateFx.ts && tsx tools/art/generateUi.ts",
+    "sfx": "tsx tools/sfx/generateSfx.ts",
+    "assets": "npm run art && npm run sfx"
   },
   "devDependencies": {
     "@eslint/js": "^9.14.0",

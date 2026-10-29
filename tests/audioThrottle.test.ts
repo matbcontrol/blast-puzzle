@@ -1,4 +1,4 @@
-import { pickVariant, SoundThrottle, VoiceLimit } from '../assets/scripts/view/audio/SoundThrottle';
+import { SoundThrottle, VoiceLimit } from '../assets/scripts/view/audio/SoundThrottle';
 
 const POP: VoiceLimit = { minGapMs: 40, maxOverlap: 3 };
 const POP_MS = 150;
@@ -60,23 +60,5 @@ describe('SoundThrottle', () => {
         expect(sounds.tryStart('pop', 10, 1000)).toBe(false);
         sounds.reset();
         expect(sounds.tryStart('pop', 10, 1000)).toBe(true);
-    });
-});
-
-describe('pickVariant', () => {
-    it('splits intensity into equal steps, quietest first', () => {
-        expect([0, 0.19, 0.2, 0.5, 0.79, 0.8, 1].map((intensity) => pickVariant(intensity, 5))).toEqual([
-            0, 0, 1, 2, 3, 4, 4,
-        ]);
-    });
-
-    it('clamps intensity outside 0..1 and survives NaN', () => {
-        expect(pickVariant(-1, 5)).toBe(0);
-        expect(pickVariant(7, 5)).toBe(4);
-        expect(pickVariant(NaN, 5)).toBe(0);
-    });
-
-    it('always picks the only variant', () => {
-        expect(pickVariant(0.7, 1)).toBe(0);
     });
 });

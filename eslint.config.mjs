@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
+import jestConfig from './jest.config.js';
 
 const newerThanEditor = (selector, feature) => ({
     selector,
@@ -27,7 +28,7 @@ const EDITOR_SYNTAX = [
     },
 ];
 
-const NO_COCOS = 'core/ and app/ must not depend on Cocos';
+const NO_COCOS = 'This file runs in Node tests, so it must not depend on Cocos (ENGINE_FREE in jest.config.js)';
 // no-restricted-globals sees cc in values and in extends/implements, not in type annotations or typeof.
 const COCOS_TYPES = ['TSQualifiedName[left.name=cc]', 'TSTypeQuery[exprName.name=cc]'].map((selector) => ({
     selector,
@@ -55,8 +56,8 @@ export default tseslint.config(
         },
     },
     {
-        // Model and controller stay engine-free: that is what keeps them testable in Node.
-        files: ['assets/scripts/core/**/*.ts', 'assets/scripts/app/**/*.ts'],
+        // Jest measures exactly the code that runs without the engine; this keeps it that way.
+        files: jestConfig.collectCoverageFrom,
         rules: {
             'no-restricted-globals': ['error', { name: 'cc', message: NO_COCOS }],
             // A later no-restricted-syntax replaces the earlier list instead of adding to it.

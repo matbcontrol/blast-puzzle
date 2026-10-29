@@ -3,65 +3,22 @@
  * antialiased by supersampling. Also writes their Cocos import settings: no trimming, so a particle
  * scales around its center, and nine-slice borders for the flash panel.
  *
- *   npx tsx tools/art/generateFx.ts
+ *   npm run art
  */
-import { createHash } from 'crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync } from 'fs';
 import { join } from 'path';
 import { FX_TEXTURES, FxTextureName, PANEL_BORDER, RING_RADIUS } from '../../assets/scripts/view/fx/FxArt';
-import { encodePng } from './png';
+import { uniformBorder, writeFolderMeta, writeIfChanged, writeSpriteMeta } from '../shared/cocosMeta';
+import { encodePng } from '../shared/png';
+import { clamp01, inset, polygonDistance, roundedRectDistance, smoothstep, Vec } from './geometry';
+import { MaskShape, rasterizeMask, Texel } from './raster';
 
-/** alpha and light 0..1. Light is the gray level, it shades the tint. */
-interface Texel {
-    alpha: number;
-    light: number;
-}
-
-/** x, y in pixels from the top left corner of the image. */
-type Shape = (x: number, y: number) => Texel;
-
-interface Vec {
-    x: number;
-    y: number;
-}
-
-const SUPERSAMPLING = 4;
 const OUT_DIR = join(__dirname, '../../assets/textures/fx');
 
-const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
-const smoothstep = (edge0: number, edge1: number, v: number) => {
-    const t = clamp01((v - edge0) / (edge1 - edge0));
-    return t * t * (3 - 2 * t);
-};
 const solid = (alpha: number): Texel => ({ alpha: clamp01(alpha), light: 1 });
 
-/** Averages light weighted by alpha: the edge of a shape keeps its own gray instead of darkening toward empty. */
-function rasterize(width: number, height: number, shape: Shape): Uint8Array {
-    const out = new Uint8Array(width * height * 4);
-    const samples = SUPERSAMPLING * SUPERSAMPLING;
-    for (let py = 0; py < height; py++) {
-        for (let px = 0; px < width; px++) {
-            let alpha = 0;
-            let light = 0;
-            for (let sy = 0; sy < SUPERSAMPLING; sy++) {
-                for (let sx = 0; sx < SUPERSAMPLING; sx++) {
-                    const texel = shape(px + (sx + 0.5) / SUPERSAMPLING, py + (sy + 0.5) / SUPERSAMPLING);
-                    alpha += texel.alpha;
-                    light += texel.alpha * texel.light;
-                }
-            }
-            // Fully transparent pixels stay white, so bilinear filtering does not pull dark fringes into the tint.
-            const gray = alpha > 0 ? light / alpha : 1;
-            const i = (py * width + px) * 4;
-            out[i] = out[i + 1] = out[i + 2] = Math.round(gray * 255);
-            out[i + 3] = Math.round((alpha / samples) * 255);
-        }
-    }
-    return out;
-}
-
 /** Gaussian falloff pulled down to exactly zero at the edge, so the square never shows. */
-function glow(size: number): Shape {
+function glow(size: number): MaskShape {
     const c = size / 2;
     const k = 5;
     const floor = Math.exp(-k);
@@ -72,7 +29,7 @@ function glow(size: number): Shape {
 }
 
 /** Four long rays thinning toward the tips, four short diagonal glints and a hot core. */
-function sparkle(size: number): Shape {
+function sparkle(size: number): MaskShape {
     const c = size / 2;
     const ray = (along: number, across: number, length: number) => {
         const rest = 1 - Math.abs(along) / length;
@@ -95,64 +52,11 @@ function sparkle(size: number): Shape {
     };
 }
 
-function signedArea(poly: Vec[]): number {
-    let sum = 0;
-    for (let i = 0; i < poly.length; i++) {
-        const a = poly[i];
-        const b = poly[(i + 1) % poly.length];
-        sum += a.x * b.y - b.x * a.y;
-    }
-    return sum / 2;
-}
-
-/** Moves every edge of a convex polygon inward by d. */
-function inset(poly: Vec[], d: number): Vec[] {
-    const sign = signedArea(poly) > 0 ? 1 : -1;
-    const lines = poly.map((a, i) => {
-        const b = poly[(i + 1) % poly.length];
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const len = Math.hypot(dx, dy);
-        const nx = (-dy / len) * sign;
-        const ny = (dx / len) * sign;
-        return { x: a.x + nx * d, y: a.y + ny * d, dx, dy };
-    });
-    return lines.map((line, i) => {
-        const prev = lines[(i + lines.length - 1) % lines.length];
-        const cross = prev.dx * line.dy - prev.dy * line.dx;
-        const t = ((line.x - prev.x) * line.dy - (line.y - prev.y) * line.dx) / cross;
-        return { x: prev.x + prev.dx * t, y: prev.y + prev.dy * t };
-    });
-}
-
-/** Signed distance to a polygon, negative inside (after Inigo Quilez). */
-function polygonDistance(x: number, y: number, poly: Vec[]): number {
-    let best = (x - poly[0].x) * (x - poly[0].x) + (y - poly[0].y) * (y - poly[0].y);
-    let sign = 1;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i, i++) {
-        const ex = poly[j].x - poly[i].x;
-        const ey = poly[j].y - poly[i].y;
-        const wx = x - poly[i].x;
-        const wy = y - poly[i].y;
-        const t = clamp01((wx * ex + wy * ey) / (ex * ex + ey * ey));
-        const bx = wx - ex * t;
-        const by = wy - ey * t;
-        best = Math.min(best, bx * bx + by * by);
-        const c1 = y >= poly[i].y;
-        const c2 = y < poly[j].y;
-        const c3 = ex * wy > ey * wx;
-        if ((c1 && c2 && c3) || (!c1 && !c2 && !c3)) {
-            sign = -sign;
-        }
-    }
-    return sign * Math.sqrt(best);
-}
-
 /**
  * An irregular chip with rounded corners. The rim facing up-left is lighter and the rest darker,
  * so a flat tint reads as a beveled piece of the tile.
  */
-function shard(): Shape {
+function shard(): MaskShape {
     const outline: Vec[] = [
         { x: 5, y: 11 },
         { x: 17, y: 3 },
@@ -184,7 +88,7 @@ function shard(): Shape {
 }
 
 /** A thin soft line with a faint haze inside it: scaled up, the haze reads as the air pushed by the blast. */
-function ring(size: number): Shape {
+function ring(size: number): MaskShape {
     const c = size / 2;
     const sigma = 3.4;
     return (x, y) => {
@@ -196,14 +100,8 @@ function ring(size: number): Shape {
     };
 }
 
-function roundedRectDistance(x: number, y: number, cx: number, cy: number, hw: number, hh: number, r: number) {
-    const qx = Math.abs(x - cx) - (hw - r);
-    const qy = Math.abs(y - cy) - (hh - r);
-    return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
-}
-
 /** A paper strip, a little darker at the bottom, so it shows a fold as it flips. */
-function confetti(width: number, height: number): Shape {
+function confetti(width: number, height: number): MaskShape {
     return (x, y) => {
         const inside = roundedRectDistance(x, y, width / 2, height / 2, width / 2 - 2, height / 2 - 2, 2.5) <= 0;
         return { alpha: inside ? 1 : 0, light: 1 - 0.18 * (y / height) };
@@ -211,7 +109,7 @@ function confetti(width: number, height: number): Shape {
 }
 
 /** Bright round head on the right, thinning and fading to nothing on the left. */
-function streak(width: number, height: number): Shape {
+function streak(width: number, height: number): MaskShape {
     const cy = height / 2;
     const headRadius = cy - 2;
     const headX = width - headRadius - 1;
@@ -228,14 +126,14 @@ function streak(width: number, height: number): Shape {
 }
 
 /** Solid white with round corners. The corners sit inside the nine-slice border, the middle stretches. */
-function panel(width: number, height: number): Shape {
+function panel(width: number, height: number): MaskShape {
     return (x, y) => {
         const d = roundedRectDistance(x, y, width / 2, height / 2, width / 2 - 0.5, height / 2 - 0.5, PANEL_BORDER - 1);
         return solid(d <= 0 ? 1 : 0);
     };
 }
 
-const SHAPES: { [K in FxTextureName]: Shape } = {
+const SHAPES: { [K in FxTextureName]: MaskShape } = {
     glow: glow(FX_TEXTURES.glow.width),
     sparkle: sparkle(FX_TEXTURES.sparkle.width),
     shard: shard(),
@@ -247,88 +145,6 @@ const SHAPES: { [K in FxTextureName]: Shape } = {
 
 const BORDERS: { [K in FxTextureName]?: number } = { panel: PANEL_BORDER };
 
-interface TextureMeta {
-    uuid: string;
-    subMetas: { [name: string]: { uuid: string } };
-}
-
-/** Stable across runs, so regenerating the art does not break references in the scene. */
-function uuidFor(key: string): string {
-    const hex = createHash('md5').update(`blast-puzzle/textures/fx/${key}`).digest('hex').split('');
-    hex[12] = '4';
-    hex[16] = ((parseInt(hex[16], 16) & 0x3) | 0x8).toString(16);
-    const s = hex.join('');
-    return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20)}`;
-}
-
-/** Keeps the uuids of an existing meta, the editor may already have handed them out. */
-function writeTextureMeta(path: string, name: string, width: number, height: number, border: number): void {
-    const old = existsSync(path) ? (JSON.parse(readFileSync(path, 'utf8')) as TextureMeta) : null;
-    const textureUuid = old !== null ? old.uuid : uuidFor(name);
-    const oldFrame = old !== null ? old.subMetas[name] : undefined;
-    const frameUuid = oldFrame !== undefined ? oldFrame.uuid : uuidFor(`${name}/frame`);
-    const meta = {
-        ver: '2.3.7',
-        uuid: textureUuid,
-        importer: 'texture',
-        type: 'sprite',
-        wrapMode: 'clamp',
-        filterMode: 'bilinear',
-        premultiplyAlpha: false,
-        genMipmaps: false,
-        packable: true,
-        width,
-        height,
-        platformSettings: {},
-        subMetas: {
-            [name]: {
-                ver: '1.0.6',
-                uuid: frameUuid,
-                importer: 'sprite-frame',
-                rawTextureUuid: textureUuid,
-                trimType: 'none',
-                trimThreshold: 1,
-                rotated: false,
-                offsetX: 0,
-                offsetY: 0,
-                trimX: 0,
-                trimY: 0,
-                width,
-                height,
-                rawWidth: width,
-                rawHeight: height,
-                borderTop: border,
-                borderBottom: border,
-                borderLeft: border,
-                borderRight: border,
-                subMetas: {},
-            },
-        },
-    };
-    writeFileSync(path, JSON.stringify(meta, null, 2));
-}
-
-function writeFolderMeta(dir: string): void {
-    const path = `${dir}.meta`;
-    if (existsSync(path)) {
-        return;
-    }
-    const meta = {
-        ver: '1.1.3',
-        uuid: uuidFor('folder'),
-        importer: 'folder',
-        isBundle: false,
-        bundleName: '',
-        priority: 1,
-        compressionType: {},
-        optimizeHotUpdate: {},
-        inlineSpriteFrames: {},
-        isRemoteBundle: {},
-        subMetas: {},
-    };
-    writeFileSync(path, JSON.stringify(meta, null, 2));
-}
-
 function main(): void {
     mkdirSync(OUT_DIR, { recursive: true });
     writeFolderMeta(OUT_DIR);
@@ -337,10 +153,10 @@ function main(): void {
         const name = `fx_${key}`;
         const file = join(OUT_DIR, `${name}.png`);
         // The meta goes first: an editor that notices the image picks up these settings, not its defaults.
-        writeTextureMeta(`${file}.meta`, name, width, height, BORDERS[key] || 0);
-        const png = encodePng(width, height, rasterize(width, height, SHAPES[key]));
-        writeFileSync(file, png);
-        console.log(`${name}.png  ${width}x${height}  ${png.length} bytes`);
+        writeSpriteMeta(file, width, height, { border: uniformBorder(BORDERS[key] || 0) });
+        const png = encodePng(width, height, rasterizeMask(width, height, SHAPES[key]));
+        const changed = writeIfChanged(file, png);
+        console.log(`${name}.png  ${width}x${height}  ${png.length} bytes${changed ? '' : '  (same)'}`);
     });
 }
 

@@ -50,14 +50,6 @@ export class SoundThrottle<Id extends string> {
     }
 }
 
-/** Maps intensity 0..1 onto one of `count` variants in equal steps, quietest first. */
-export function pickVariant(intensity: number, count: number): number {
-    if (!(intensity > 0)) {
-        return 0;
-    }
-    return Math.min(count - 1, Math.floor(Math.min(intensity, 1) * count));
-}
-
 // In place: this runs for every requested sound, so it does not allocate.
 function dropEnded(ends: number[], nowMs: number): void {
     let kept = 0;

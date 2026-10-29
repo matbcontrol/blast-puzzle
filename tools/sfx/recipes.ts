@@ -5,6 +5,7 @@
  */
 import { Random, randomInt } from '../../assets/scripts/core/random/Random';
 import { SeededRandom } from '../../assets/scripts/core/random/SeededRandom';
+import { SoundId } from '../../assets/scripts/view/audio/SoundPlayer';
 import {
     adsr,
     constant,
@@ -24,12 +25,6 @@ import {
     Track,
     wobble,
 } from './dsp';
-
-export interface SoundRecipe {
-    /** File name without extension; also the clip name in the inspector. */
-    readonly name: string;
-    render(): Track;
-}
 
 const NOTE = {
     A3: 220.0,
@@ -66,21 +61,22 @@ const BOX: RoomSpec = { size: 0.5, feedback: 0.4, damp: 0.5, mix: 0.1 };
 const ROOM: RoomSpec = { size: 0.8, feedback: 0.5, damp: 0.45, mix: 0.16 };
 const HALL: RoomSpec = { size: 1, feedback: 0.62, damp: 0.35, mix: 0.22 };
 
-export const SOUNDS: ReadonlyArray<SoundRecipe> = [
-    ...POP_NOTES.map((_, level) => ({ name: `pop_${level}`, render: () => pop(level) })),
-    { name: 'land', render: land },
-    { name: 'swap', render: swap },
-    { name: 'shuffle', render: shuffle },
-    { name: 'superCreate', render: superCreate },
-    { name: 'rocket', render: rocket },
-    { name: 'bomb', render: bomb },
-    { name: 'field', render: field },
-    { name: 'reject', render: reject },
-    { name: 'select', render: select },
-    { name: 'click', render: click },
-    { name: 'win', render: win },
-    { name: 'lose', render: lose },
-];
+/** The recipes of each sound, one per clip, in the order of clipNames() in SoundCatalog. */
+export const RECIPES: { readonly [id in SoundId]: ReadonlyArray<() => Track> } = {
+    pop: POP_NOTES.map((_, level) => () => pop(level)),
+    land: [land],
+    swap: [swap],
+    shuffle: [shuffle],
+    superCreate: [superCreate],
+    rocket: [rocket],
+    bomb: [bomb],
+    field: [field],
+    reject: [reject],
+    select: [select],
+    click: [click],
+    win: [win],
+    lose: [lose],
+};
 
 /** A bubble bursting: the pitch shoots up from below, which is what makes a bloop and not a beep. */
 function pop(level: number): Track {

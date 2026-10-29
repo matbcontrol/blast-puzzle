@@ -13,10 +13,13 @@ export type SoundId =
     | 'win'
     | 'lose';
 
-/** What the views may do with sound. The implementation owns the clips and the mute state. */
-export interface SoundBoard {
-    readonly muted: boolean;
+/** What views and animators may do with sound: ask for one. Whether it is heard is not their business. */
+export interface SoundPlayer {
     /** intensity 0..1: bigger groups pop higher and louder. Ignored by sounds without variants. */
     play(id: SoundId, intensity?: number): void;
-    setMuted(muted: boolean): void;
+}
+
+/** Until the scene wires the real sound, so a view plays without it. */
+export class NoSound implements SoundPlayer {
+    play(): void {}
 }
