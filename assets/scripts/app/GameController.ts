@@ -10,10 +10,22 @@ import { LockedInput } from './input/LockedInput';
  * Glues the model to the screen: routes input to the game and replays turn results on the views.
  * Input is locked while a turn animates, so a fast double tap can never desync model and view.
  */
-export class GameController implements InputContext {
+export class GameController {
     private game: BlastGame | null = null;
     private input: InputState = new LockedInput();
     private readonly subscriptions: Array<() => void>;
+
+    // Only input states get these, so nothing outside can tap past the lock.
+    private readonly inputContext: InputContext = {
+        enterIdle: () => this.enterIdle(),
+        enterAiming: (boosterId) => this.enterAiming(boosterId),
+        tap: (at) => this.tap(at),
+        useBooster: (id, targets) => this.useBooster(id, targets),
+        boosterCharges: (id) => this.currentGame().boosterCharges(id),
+        boosterTargetCount: (id) => this.currentGame().boosterTargetCount(id),
+        selectBooster: (id) => this.views.boosters.select(id),
+        markTargets: (cells) => this.views.board.markTargets(cells),
+    };
 
     constructor(
         private readonly newGame: () => BlastGame,
@@ -39,50 +51,42 @@ export class GameController implements InputContext {
         this.setInput(new LockedInput());
     }
 
-    enterIdle(): void {
-        this.setInput(new IdleInput(this));
+    private enterIdle(): void {
+        this.setInput(new IdleInput(this.inputContext));
     }
 
-    enterAiming(boosterId: string): void {
-        this.setInput(new BoosterAimingInput(this, boosterId));
+    private enterAiming(boosterId: string): void {
+        this.setInput(new BoosterAimingInput(this.inputContext, boosterId));
     }
 
-    tap(at: GridPos): void {
+    private tap(at: GridPos): void {
         const result = this.currentGame().tap(at);
         if (result === null) {
             this.views.board.rejectTap(at);
             return;
         }
-        void this.playTurn(result);
+        this.playTurn(result);
     }
 
-    useBooster(id: string, targets: ReadonlyArray<GridPos>): void {
+    private useBooster(id: string, targets: ReadonlyArray<GridPos>): void {
         const result = this.currentGame().useBooster(id, targets);
         if (result === null) {
             this.views.board.rejectTap(targets[targets.length - 1]);
             this.enterIdle();
             return;
         }
-        void this.playTurn(result);
+        this.playTurn(result);
     }
 
-    boosterCharges(id: string): number {
-        return this.currentGame().boosterCharges(id);
+    private playTurn(result: TurnResult): void {
+        this.animateTurn(result).catch((error) => {
+            console.error('Turn failed, unlocking input', error);
+            // No enter(): the views just threw, and a second throw here would escape unhandled.
+            this.input = new IdleInput(this.inputContext);
+        });
     }
 
-    boosterTargetCount(id: string): number {
-        return this.currentGame().boosterTargetCount(id);
-    }
-
-    selectBooster(id: string | null): void {
-        this.views.boosters.select(id);
-    }
-
-    markTargets(cells: ReadonlyArray<GridPos>): void {
-        this.views.board.markTargets(cells);
-    }
-
-    private async playTurn(result: TurnResult): Promise<void> {
+    private async animateTurn(result: TurnResult): Promise<void> {
         this.setInput(new LockedInput());
         this.views.boosters.select(null);
         this.views.board.markTargets([]);
@@ -93,13 +97,22 @@ export class GameController implements InputContext {
         } catch (error) {
             // The model is the source of truth: a broken animation must not leave the game locked.
             console.error('Turn animation failed, redrawing the board', error);
-            this.views.board.render(this.currentGame().currentBoard);
+            this.redrawBoard();
         }
 
         if (result.progress.status === 'playing') {
             this.enterIdle();
         } else {
             this.views.result.show(result.progress);
+        }
+    }
+
+    private redrawBoard(): void {
+        try {
+            this.views.board.render(this.currentGame().currentBoard);
+        } catch (error) {
+            // A stale picture still beats a frozen game, so the turn goes on.
+            console.error('Board redraw failed', error);
         }
     }
 

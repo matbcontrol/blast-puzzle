@@ -2,17 +2,14 @@ import { GameController } from '../assets/scripts/app/GameController';
 import { BoardPresenter, BoosterPresenter, HudPresenter, ResultPresenter } from '../assets/scripts/app/GameViews';
 import { Signal } from '../assets/scripts/app/Signal';
 import { gridPos, GridPos } from '../assets/scripts/core/board/GridPos';
+import { LevelConfig } from '../assets/scripts/core/config/LevelConfig';
 import { createBlastGame } from '../assets/scripts/core/game/BlastGameFactory';
 import { TurnStep } from '../assets/scripts/core/game/TurnStep';
 import { ProgressSnapshot } from '../assets/scripts/core/rules/LevelProgress';
 import { boardFromText } from './helpers/boardText';
 import { alwaysRed, testConfig } from './helpers/fixtures';
 
-const flush = async () => {
-    for (let i = 0; i < 5; i++) {
-        await Promise.resolve();
-    }
-};
+const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 class FakeBoard implements BoardPresenter {
     readonly cellTapped = new Signal<GridPos>();
@@ -20,11 +17,15 @@ class FakeBoard implements BoardPresenter {
     readonly rejected: GridPos[] = [];
     marked: ReadonlyArray<GridPos> = [];
     renders = 0;
+    renderFails = false;
     private finishAnimation: () => void = () => {};
     private failAnimation: (error: Error) => void = () => {};
 
     render(): void {
         this.renders++;
+        if (this.renderFails) {
+            throw new Error('render exploded');
+        }
     }
 
     play(steps: ReadonlyArray<TurnStep>): Promise<void> {
@@ -57,7 +58,11 @@ class FakeBoard implements BoardPresenter {
 
 class FakeHud implements HudPresenter {
     last: ProgressSnapshot | null = null;
+    fails = false;
     showProgress(progress: ProgressSnapshot): void {
+        if (this.fails) {
+            throw new Error('label exploded');
+        }
         this.last = progress;
     }
 }
@@ -85,7 +90,7 @@ class FakeResult implements ResultPresenter {
     }
 }
 
-function setup(lines: string[], overrides = {}) {
+function setup(lines: string[], overrides: Partial<LevelConfig> = {}) {
     const views = {
         board: new FakeBoard(),
         hud: new FakeHud(),
@@ -101,6 +106,8 @@ function setup(lines: string[], overrides = {}) {
 const LAYOUT = ['RRB', 'GBG', 'BGB'];
 
 describe('GameController', () => {
+    afterEach(() => jest.restoreAllMocks());
+
     it('plays a turn and shows the new progress', async () => {
         const { views } = setup(LAYOUT);
 
@@ -172,7 +179,7 @@ describe('GameController', () => {
 
     it('redraws the board from the model and unlocks input when an animation fails', async () => {
         const { views } = setup(LAYOUT);
-        const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
+        jest.spyOn(console, 'error').mockImplementation(() => {});
 
         views.board.cellTapped.dispatch(gridPos(0, 2));
         await views.board.crash();
@@ -180,6 +187,41 @@ describe('GameController', () => {
         expect(views.board.renders).toBe(2);
         views.board.cellTapped.dispatch(gridPos(2, 2));
         expect(views.board.rejected).toHaveLength(1);
-        errorLog.mockRestore();
+    });
+
+    it('unlocks input even when the recovery redraw fails', async () => {
+        const { views } = setup(LAYOUT);
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+        views.board.renderFails = true;
+
+        views.board.cellTapped.dispatch(gridPos(0, 2));
+        await views.board.crash();
+
+        views.board.cellTapped.dispatch(gridPos(2, 2));
+        expect(views.board.rejected).toHaveLength(1);
+    });
+
+    it('shows the result even when the recovery redraw fails', async () => {
+        const { views } = setup(LAYOUT, { targetScore: 30 });
+        jest.spyOn(console, 'error').mockImplementation(() => {});
+        views.board.renderFails = true;
+
+        views.board.cellTapped.dispatch(gridPos(0, 2));
+        await views.board.crash();
+
+        expect(views.result.shown!.status).toBe('won');
+    });
+
+    it('logs the error and unlocks input when a view throws mid-turn', async () => {
+        const { views } = setup(LAYOUT);
+        const errorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
+        views.hud.fails = true;
+
+        views.board.cellTapped.dispatch(gridPos(0, 2));
+        await flush();
+
+        expect(errorLog).toHaveBeenCalledWith('Turn failed, unlocking input', expect.any(Error));
+        views.board.cellTapped.dispatch(gridPos(2, 2));
+        expect(views.board.rejected).toHaveLength(1);
     });
 });

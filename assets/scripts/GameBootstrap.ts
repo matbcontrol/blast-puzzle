@@ -1,4 +1,7 @@
 import { GameController } from './app/GameController';
+import { assertSceneSetup } from './app/SceneSetup';
+import { SeedSequence } from './app/SeedSequence';
+import { LevelConfig } from './core/config/LevelConfig';
 import { parseLevelConfig } from './core/config/parseLevelConfig';
 import { createBlastGame } from './core/game/BlastGameFactory';
 import { SeededRandom } from './core/random/SeededRandom';
@@ -34,19 +37,14 @@ export class GameBootstrap extends cc.Component {
 
     start(): void {
         const config = parseLevelConfig(this.level.json);
-        if (config.colors > this.board.skins.colors.length) {
-            throw new Error(
-                `Level asks for ${config.colors} colors, only ${this.board.skins.colors.length} sprites set`,
-            );
-        }
+        this.checkScene(config);
 
-        let seed = seedFromUrl() || config.seed || randomSeed();
+        const seeds = new SeedSequence(seedFromUrl(), config.seed);
         this.controller = new GameController(
             () => {
+                const seed = seeds.next();
                 cc.log(`Blast: seed ${seed}, replay with ?seed=${seed}`);
-                const game = createBlastGame(config, new SeededRandom(seed));
-                seed = randomSeed();
-                return game;
+                return createBlastGame(config, new SeededRandom(seed));
             },
             { board: this.board, hud: this.hud, boosters: this.boosters, result: this.result },
         );
@@ -58,6 +56,19 @@ export class GameBootstrap extends cc.Component {
             this.controller.dispose();
         }
     }
+
+    private checkScene(config: LevelConfig): void {
+        const skins = this.board.skins;
+        assertSceneSetup({
+            colorCount: config.colorCount,
+            colorSprites: skins.colors.length,
+            superKinds: config.superTiles.reduce<string[]>((kinds, rule) => kinds.concat(rule.kinds), []),
+            superSprites: skins.supers.map((skin) => skin.kind),
+            // Booster ids are defined by the model factory, so a throwaway game is where to read them.
+            boosters: createBlastGame(config, new SeededRandom(1)).boosterIds(),
+            boosterButtons: this.boosters.buttons.map((button) => button.boosterId),
+        });
+    }
 }
 
 function seedFromUrl(): number | null {
@@ -66,8 +77,4 @@ function seedFromUrl(): number | null {
     }
     const match = /[?&]seed=(\d+)/.exec(window.location.search);
     return match === null ? null : Number(match[1]);
-}
-
-function randomSeed(): number {
-    return Math.floor(Math.random() * 0x7fffffff) + 1;
 }
