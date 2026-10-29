@@ -1,7 +1,7 @@
 {
   "cols": 9,
   "rows": 10,
-  "colors": 5,
+  "colorCount": 5,
   "minGroupSize": 2,
   "targetScore": 3200,
   "moves": 30,

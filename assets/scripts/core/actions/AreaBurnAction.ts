@@ -17,6 +17,9 @@ export class AreaBurnAction implements PlayerAction {
     }
 
     apply(board: Board): TurnStep[] {
+        if (!this.canApply(board)) {
+            throw new Error(`Cell ${this.origin.col}:${this.origin.row} is outside the board`);
+        }
         const waves = this.burner.burn(board, this.origin, this.area.cellsAround(board, this.origin));
         return [{ type: 'burn', waves, fromGroup: false }];
     }

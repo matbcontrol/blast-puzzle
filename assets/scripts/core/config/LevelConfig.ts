@@ -3,7 +3,7 @@ import { SuperTileRule } from '../tiles/SuperTilePicker';
 export interface LevelConfig {
     readonly cols: number;
     readonly rows: number;
-    readonly colors: number;
+    readonly colorCount: number;
     readonly minGroupSize: number;
     readonly targetScore: number;
     readonly moves: number;

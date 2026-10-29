@@ -21,7 +21,7 @@ export function testConfig(overrides: Partial<LevelConfig> = {}): LevelConfig {
     return {
         cols: 5,
         rows: 5,
-        colors: 5,
+        colorCount: 5,
         minGroupSize: 2,
         targetScore: 1000,
         moves: 10,

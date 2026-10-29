@@ -58,7 +58,7 @@ export function parseLevelConfig(raw: unknown): LevelConfig {
 
     const cols = read.int('cols', 1, 20);
     const rows = read.int('rows', 1, 20);
-    const colors = read.int('colors', 1, 8);
+    const colorCount = read.int('colorCount', 1, 8);
     const minGroupSize = read.int('minGroupSize', 2);
     const superTiles: SuperTileRule[] = read.list('superTiles').map((rule, i) => {
         const ruleReader = new FieldReader(rule, errors, `superTiles[${i}].`);
@@ -68,7 +68,7 @@ export function parseLevelConfig(raw: unknown): LevelConfig {
     const config: LevelConfig = {
         cols,
         rows,
-        colors,
+        colorCount,
         minGroupSize,
         targetScore: read.int('targetScore', 1),
         moves: read.int('moves', 1),
@@ -86,8 +86,8 @@ export function parseLevelConfig(raw: unknown): LevelConfig {
         errors.push(`a group of ${minGroupSize} does not fit a ${cols}x${rows} board`);
     }
     // Pigeonhole: with this many cells some color always has a full group, so a shuffle can always plant one.
-    if (cols * rows < colors * (minGroupSize - 1) + 1) {
-        errors.push(`${cols}x${rows} board is too small for ${colors} colors and groups of ${minGroupSize}`);
+    if (cols * rows < colorCount * (minGroupSize - 1) + 1) {
+        errors.push(`${cols}x${rows} board is too small for colorCount ${colorCount} and minGroupSize ${minGroupSize}`);
     }
 
     if (errors.length > 0) {

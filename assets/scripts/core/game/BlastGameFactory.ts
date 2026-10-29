@@ -34,19 +34,13 @@ export function createBlastGame(config: LevelConfig, random: Random, layout?: Bo
         .register(SuperKinds.Field, new WholeBoardArea());
     assertKnownSuperKinds(config, catalog);
 
-    const tiles = new TileFactory(random, config.colors);
+    const tiles = new TileFactory(random, config.colorCount);
     const rules = new GroupRules(config.minGroupSize);
     const burner = new BurnResolver(catalog);
     const filler = new BoardFiller(tiles);
     const shuffler = new Shuffler(random, rules);
 
-    const tapActions = new TapActionFactory(
-        rules,
-        burner,
-        catalog,
-        new SuperTilePicker(config.superTiles, random),
-        tiles,
-    );
+    const tapActions = new TapActionFactory(rules, burner, new SuperTilePicker(config.superTiles, random), tiles);
     const boosters = new BoosterInventory()
         .add(new BombBooster(new RadiusArea(config.bombRadius), burner), config.bombCharges)
         .add(new TeleportBooster(), config.teleportCharges);

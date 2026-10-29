@@ -3,6 +3,7 @@ import { BoardFiller } from '../assets/scripts/core/board/BoardFiller';
 import { findColorGroup } from '../assets/scripts/core/board/ColorGroup';
 import { dropTiles } from '../assets/scripts/core/board/Gravity';
 import { gridPos, posKey } from '../assets/scripts/core/board/GridPos';
+import { SeededRandom } from '../assets/scripts/core/random/SeededRandom';
 import { GroupRules } from '../assets/scripts/core/rules/GroupRules';
 import { TileFactory } from '../assets/scripts/core/tiles/TileFactory';
 import { boardFromText, boardToText } from './helpers/boardText';
@@ -57,6 +58,38 @@ describe('GroupRules', () => {
         const board = boardFromText(['RRG', 'BGB']);
         expect(new GroupRules(3).hasMove(board)).toBe(false);
         expect(new GroupRules(3).burnableGroupAt(board, gridPos(0, 1))).toBeNull();
+    });
+
+    describe('canTap', () => {
+        const rules = new GroupRules(2);
+        const board = boardFromText([
+            'RR|', //
+            'GB.',
+        ]);
+
+        it('allows a super tile and a burnable group', () => {
+            expect(rules.canTap(board, gridPos(2, 1))).toBe(true);
+            expect(rules.canTap(board, gridPos(1, 1))).toBe(true);
+        });
+
+        it('refuses a lone tile and an empty cell', () => {
+            expect(rules.canTap(board, gridPos(0, 0))).toBe(false);
+            expect(rules.canTap(board, gridPos(2, 0))).toBe(false);
+        });
+
+        it('agrees with hasMove: a move exists exactly when some cell can be tapped', () => {
+            const strict = new GroupRules(3);
+            const outcomes = new Set<boolean>();
+            for (let seed = 0; seed < 200; seed++) {
+                const randomBoard = new Board(4, 4);
+                new BoardFiller(new TileFactory(new SeededRandom(seed), 4)).fillEmpty(randomBoard);
+                const anyTap = randomBoard.positions().some((p) => strict.canTap(randomBoard, p));
+                expect(strict.hasMove(randomBoard)).toBe(anyTap);
+                outcomes.add(anyTap);
+            }
+            // Both live and dead boards must show up, or the check above proves nothing.
+            expect(outcomes.size).toBe(2);
+        });
     });
 });
 

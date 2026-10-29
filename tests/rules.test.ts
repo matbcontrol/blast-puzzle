@@ -85,8 +85,14 @@ describe('parseLevelConfig', () => {
         expect(message).toContain('superTiles[0].kinds');
     });
 
+    it('names colorCount when it is missing, as in configs written before the rename', () => {
+        const raw: { [key: string]: unknown } = { ...testConfig(), colors: 5 };
+        delete raw.colorCount;
+        expect(() => parseLevelConfig(raw)).toThrow('colorCount: expected an integer');
+    });
+
     it('rejects a board too small to guarantee a group after shuffling', () => {
-        const raw = { ...testConfig(), cols: 2, rows: 2, colors: 5 };
+        const raw = { ...testConfig(), cols: 2, rows: 2, colorCount: 5 };
         expect(() => parseLevelConfig(raw)).toThrow('too small');
     });
 });

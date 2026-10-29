@@ -1,6 +1,6 @@
 import { Board } from '../board/Board';
 import { GridPos } from '../board/GridPos';
-import { SuperKind, Tile } from '../tiles/Tile';
+import { Tile } from '../tiles/Tile';
 import { SuperTileCatalog } from './SuperTileCatalog';
 
 export interface BurnedTile {
@@ -26,6 +26,15 @@ interface PendingWave {
 export class BurnResolver {
     constructor(private readonly catalog: SuperTileCatalog) {}
 
+    /** Fires the super tile at `at` with its own area. The tile burns in the first wave and does not fire again. */
+    detonate(board: Board, at: GridPos): BurnWave[] {
+        const tile = board.tileAt(at);
+        if (tile === null || !tile.isSuper) {
+            throw new Error(`No super tile at ${at.col}:${at.row}`);
+        }
+        return this.burn(board, at, this.blastOf(tile, board, at), tile.id);
+    }
+
     /** @param sourceTileId super tile that started the burn: it is consumed without firing again. */
     burn(board: Board, origin: GridPos, cells: GridPos[], sourceTileId: number | null = null): BurnWave[] {
         const waves: BurnWave[] = [];
@@ -42,12 +51,15 @@ export class BurnResolver {
                 board.put(at, null);
                 burned.push({ tile, at });
                 if (tile.isSuper && tile.id !== wave.sourceTileId) {
-                    const area = this.catalog.areaFor(tile.superKind as SuperKind);
-                    pending.push({ origin: at, cells: area.cellsAround(board, at), sourceTileId: tile.id });
+                    pending.push({ origin: at, cells: this.blastOf(tile, board, at), sourceTileId: tile.id });
                 }
             }
             waves.push({ origin: wave.origin, tiles: burned });
         }
         return waves;
+    }
+
+    private blastOf(superTile: Tile, board: Board, at: GridPos): GridPos[] {
+        return this.catalog.areaFor(superTile.requireSuperKind()).cellsAround(board, at);
     }
 }

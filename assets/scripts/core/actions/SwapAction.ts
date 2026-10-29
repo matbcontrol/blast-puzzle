@@ -10,11 +10,17 @@ export class SwapAction implements PlayerAction {
         private readonly b: GridPos,
     ) {}
 
+    /** Swapping two tiles that look the same would spend a charge without changing anything. */
     canApply(board: ReadonlyBoard): boolean {
-        return !samePos(this.a, this.b) && board.tileAt(this.a) !== null && board.tileAt(this.b) !== null;
+        const first = board.tileAt(this.a);
+        const second = board.tileAt(this.b);
+        return !samePos(this.a, this.b) && first !== null && second !== null && !first.looksLike(second);
     }
 
     apply(board: Board): TurnStep[] {
+        if (!this.canApply(board)) {
+            throw new Error('Nothing to swap between the chosen cells');
+        }
         const first = board.tileAt(this.a) as Tile;
         const second = board.tileAt(this.b) as Tile;
         board.swap(this.a, this.b);

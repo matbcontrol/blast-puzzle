@@ -1,4 +1,11 @@
+import { ActivateSuperAction } from '../assets/scripts/core/actions/ActivateSuperAction';
+import { AreaBurnAction } from '../assets/scripts/core/actions/AreaBurnAction';
+import { PlayerAction } from '../assets/scripts/core/actions/PlayerAction';
+import { SwapAction } from '../assets/scripts/core/actions/SwapAction';
 import { gridPos } from '../assets/scripts/core/board/GridPos';
+import { BurnResolver } from '../assets/scripts/core/burn/BurnResolver';
+import { RadiusArea } from '../assets/scripts/core/burn/RadiusArea';
+import { SuperTileCatalog } from '../assets/scripts/core/burn/SuperTileCatalog';
 import { LevelConfig } from '../assets/scripts/core/config/LevelConfig';
 import { createBlastGame } from '../assets/scripts/core/game/BlastGameFactory';
 import { TurnResult } from '../assets/scripts/core/game/BlastGame';
@@ -85,6 +92,44 @@ describe('BlastGame: boosters', () => {
         expect(game.useBooster('teleport', [gridPos(0, 0), gridPos(0, 0)])).toBeNull();
         expect(game.boosterCharges('teleport')).toBe(2);
     });
+
+    it('rejects a teleport between tiles that look the same and keeps the charge', () => {
+        const game = gameOn([
+            'R|', //
+            'GR',
+            '|G',
+        ]);
+
+        expect(game.useBooster('teleport', [gridPos(0, 2), gridPos(1, 1)])).toBeNull();
+        expect(game.useBooster('teleport', [gridPos(1, 2), gridPos(0, 0)])).toBeNull();
+        expect(boardToText(game.currentBoard)).toEqual(['R|', 'GR', '|G']);
+        expect(game.boosterCharges('teleport')).toBe(2);
+    });
+
+    it('teleports a super tile onto a regular one', () => {
+        const game = gameOn(['R|', 'GB']);
+
+        expect(game.useBooster('teleport', [gridPos(1, 1), gridPos(0, 0)])).not.toBeNull();
+        expect(boardToText(game.currentBoard)).toEqual(['RG', '|B']);
+    });
+});
+
+describe('PlayerAction', () => {
+    it('throws from apply() when canApply() is false and leaves the board alone', () => {
+        const burner = new BurnResolver(new SuperTileCatalog());
+        const board = boardFromText(['RR', 'GB']);
+        const refused: PlayerAction[] = [
+            new SwapAction(gridPos(0, 1), gridPos(1, 1)),
+            new AreaBurnAction(gridPos(2, 0), new RadiusArea(1), burner),
+            new ActivateSuperAction(gridPos(0, 0), burner),
+        ];
+
+        for (const action of refused) {
+            expect(action.canApply(board)).toBe(false);
+            expect(() => action.apply(board)).toThrow();
+        }
+        expect(boardToText(board)).toEqual(['RR', 'GB']);
+    });
 });
 
 describe('BlastGame: win and lose', () => {
@@ -107,7 +152,7 @@ describe('BlastGame: win and lose', () => {
     it('shuffles a dead board automatically', () => {
         // Burning the top GG pair refills it with R and G, which leaves no pair anywhere.
         const random = new ScriptedRandom([0, 0.3]);
-        const game = gameOn(['GGBY', 'BYRG', 'RGBY'], { colors: 4 }, random);
+        const game = gameOn(['GGBY', 'BYRG', 'RGBY'], { colorCount: 4 }, random);
 
         const result = game.tap(gridPos(0, 2));
 
@@ -118,7 +163,7 @@ describe('BlastGame: win and lose', () => {
 
     it('loses with no moves once shuffles are used up', () => {
         const random = new ScriptedRandom([0, 0.3]);
-        const game = gameOn(['GGBY', 'BYRG', 'RGBY'], { colors: 4, maxShuffles: 0 }, random);
+        const game = gameOn(['GGBY', 'BYRG', 'RGBY'], { colorCount: 4, maxShuffles: 0 }, random);
 
         const progress = game.tap(gridPos(0, 2))!.progress;
 
@@ -128,7 +173,7 @@ describe('BlastGame: win and lose', () => {
 });
 
 describe('createBlastGame', () => {
-    const config = testConfig({ cols: 9, rows: 9, colors: 5 });
+    const config = testConfig({ cols: 9, rows: 9, colorCount: 5 });
 
     it('always starts on a full board with at least one move', () => {
         for (let seed = 0; seed < 100; seed++) {

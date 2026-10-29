@@ -78,3 +78,36 @@ describe('BurnResolver', () => {
         expect(boardToText(board)).toEqual(['..', 'R.']);
     });
 });
+
+describe('BurnResolver.detonate', () => {
+    it('fires the area registered for the kind of the super tile', () => {
+        const board = boardFromText([
+            'RGBY', //
+            'G|YB',
+            'BYRG',
+        ]);
+
+        const waves = new BurnResolver(catalog()).detonate(board, gridPos(1, 1));
+
+        expect(boardToText(board)).toEqual(['R.BY', 'G.YB', 'B.RG']);
+        expect(waves).toHaveLength(1);
+        expect(posKey(waves[0].origin)).toBe('1:1');
+    });
+
+    it('burns the source tile once without firing it again', () => {
+        const board = boardFromText(['RGB', 'G*R', 'BRG']);
+        const bomb = board.tileAt(gridPos(1, 1))!;
+
+        const waves = new BurnResolver(catalog()).detonate(board, gridPos(1, 1));
+
+        expect(waves).toHaveLength(1);
+        expect(waves[0].tiles.filter((burned) => burned.tile.id === bomb.id)).toHaveLength(1);
+        expect(boardToText(board)).toEqual(['...', '...', '...']);
+    });
+
+    it('refuses a cell without a super tile', () => {
+        const board = boardFromText(['R.']);
+        expect(() => new BurnResolver(catalog()).detonate(board, gridPos(0, 0))).toThrow('No super tile');
+        expect(() => new BurnResolver(catalog()).detonate(board, gridPos(1, 0))).toThrow('No super tile');
+    });
+});
