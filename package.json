@@ -7,9 +7,10 @@
     "test": "jest",
     "test:coverage": "jest --coverage",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:tests": "tsc -p tsconfig.test.json --noEmit",
     "lint": "eslint assets/scripts tests tools",
     "format": "prettier --write \"assets/scripts/**/*.ts\" \"tests/**/*.ts\"",
-    "check": "npm run typecheck && npm run lint && npm test",
+    "check": "npm run typecheck && npm run typecheck:tests && npm run lint && npm test",
     "simulate": "tsx tools/simulate.ts"
   },
   "devDependencies": {

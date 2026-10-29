@@ -10,24 +10,23 @@ import { findColorGroup } from '../assets/scripts/core/board/ColorGroup';
 import { GridPos } from '../assets/scripts/core/board/GridPos';
 import { parseLevelConfig } from '../assets/scripts/core/config/parseLevelConfig';
 import { LevelConfig } from '../assets/scripts/core/config/LevelConfig';
-import { BlastGame } from '../assets/scripts/core/game/BlastGame';
 import { createBlastGame } from '../assets/scripts/core/game/BlastGameFactory';
-import { randomItem } from '../assets/scripts/core/random/Random';
+import { Random, randomItem } from '../assets/scripts/core/random/Random';
 import { SeededRandom } from '../assets/scripts/core/random/SeededRandom';
+import { GroupRules } from '../assets/scripts/core/rules/GroupRules';
 
-type Strategy = (board: ReadonlyBoard, game: BlastGame, pick: SeededRandom) => GridPos;
+type Strategy = (board: ReadonlyBoard, pick: Random) => GridPos;
 
-const playable = (board: ReadonlyBoard, min: number) =>
-    board.positions().filter((p) => {
-        const tile = board.tileAt(p);
-        return tile !== null && (tile.isSuper || findColorGroup(board, p).length >= min);
-    });
+// Above any group a board of at most 20x20 can hold, so the greedy bot fires a super tile first.
+const SUPER_FIRST = 1000;
 
-const strategies: { [name: string]: (config: LevelConfig) => Strategy } = {
-    random: (config) => (board, _game, pick) => randomItem(pick, playable(board, config.minGroupSize)),
-    greedy: (config) => (board) => {
-        const options = playable(board, config.minGroupSize);
-        const size = (p: GridPos) => (board.tileAt(p)!.isSuper ? 1000 : findColorGroup(board, p).length);
+const legalTaps = (board: ReadonlyBoard, rules: GroupRules) => board.positions().filter((p) => rules.canTap(board, p));
+
+const strategies: { [name: string]: (rules: GroupRules) => Strategy } = {
+    random: (rules) => (board, pick) => randomItem(pick, legalTaps(board, rules)),
+    greedy: (rules) => (board) => {
+        const options = legalTaps(board, rules);
+        const size = (p: GridPos) => (board.tileAt(p)!.isSuper ? SUPER_FIRST : findColorGroup(board, p).length);
         return options.reduce((best, p) => (size(p) > size(best) ? p : best), options[0]);
     },
 };
@@ -36,7 +35,7 @@ function playOnce(config: LevelConfig, seed: number, strategy: Strategy) {
     const game = createBlastGame(config, new SeededRandom(seed));
     const pick = new SeededRandom(seed * 7919);
     while (game.progressSnapshot.status === 'playing') {
-        game.tap(strategy(game.currentBoard, game, pick));
+        game.tap(strategy(game.currentBoard, pick));
     }
     return game.progressSnapshot;
 }
@@ -48,15 +47,16 @@ function percentile(sorted: number[], p: number): number {
 const [configPath = 'assets/configs/level1.json', runsArg = '1000'] = process.argv.slice(2);
 const config = parseLevelConfig(JSON.parse(readFileSync(configPath, 'utf8')));
 const runs = Number(runsArg);
+const rules = new GroupRules(config.minGroupSize);
 // Bots never stop early, so the target is lifted out of reach to see the full score distribution.
 const open = { ...config, targetScore: Number.MAX_SAFE_INTEGER };
 
-console.log(`${configPath}: ${config.cols}x${config.rows}, ${config.colors} colors, ${config.moves} moves`);
+console.log(`${configPath}: ${config.cols}x${config.rows}, ${config.colorCount} colors, ${config.moves} moves`);
 for (const name of Object.keys(strategies)) {
     const scores: number[] = [];
     let stuck = 0;
     for (let seed = 1; seed <= runs; seed++) {
-        const result = playOnce(open, seed, strategies[name](config));
+        const result = playOnce(open, seed, strategies[name](rules));
         scores.push(result.score);
         if (result.loseReason === 'noMoves') {
             stuck++;
