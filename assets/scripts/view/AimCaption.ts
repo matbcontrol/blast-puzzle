@@ -1,3 +1,6 @@
+import { pulse } from './Tweens';
+import { TweenSlot } from './TweenSlot';
+
 const { ccclass, property } = cc._decorator;
 
 /** Seconds and scales of the aiming caption. */
@@ -5,8 +8,7 @@ export const CaptionFeel = {
     fade: 0.16,
     popFrom: 0.8,
     /** A slow breath while it waits for the player, so the eye finds it. */
-    breathScale: 1.04,
-    breath: 1.2,
+    breath: { peak: 1.04, rest: 1, rise: 0.6, fall: 0.6 },
 };
 
 /** Tells the player what an aimed booster wants, in place of the static title above the booster buttons. */
@@ -19,9 +21,16 @@ export class AimCaption extends cc.Component {
     title: cc.Node | null = null;
 
     private text: string | null = null;
+    private readonly motion = new TweenSlot();
+    private readonly titleFade = new TweenSlot();
 
     onLoad(): void {
         this.label.node.opacity = 0;
+    }
+
+    onDestroy(): void {
+        this.motion.stop();
+        this.titleFade.stop();
     }
 
     /** null puts the title back. */
@@ -31,39 +40,27 @@ export class AimCaption extends cc.Component {
         }
         this.text = text;
         const caption = this.label.node;
-        cc.Tween.stopAllByTarget(caption);
         if (text === null) {
-            cc.tween(caption).to(CaptionFeel.fade, { opacity: 0 }, { easing: 'quadIn' }).start();
+            this.motion.play(cc.tween(caption).to(CaptionFeel.fade, { opacity: 0 }, { easing: 'quadIn' }));
             this.fadeTitle(255);
             return;
         }
         this.label.string = text;
         caption.opacity = 0;
         caption.setScale(CaptionFeel.popFrom);
-        cc.tween(caption)
-            .to(CaptionFeel.fade, { opacity: 255, scale: 1 }, { easing: 'backOut' })
-            .call(() => this.breathe(caption))
-            .start();
+        this.motion.play(
+            cc
+                .tween(caption)
+                .to(CaptionFeel.fade, { opacity: 255, scale: 1 }, { easing: 'backOut' })
+                // A loop inside a sequence never repeats, so the breath takes the slot over as its own tween.
+                .call(() => this.motion.play(pulse(caption, 'scale', CaptionFeel.breath))),
+        );
         this.fadeTitle(0);
     }
 
-    /** A tween of its own: inside a sequence a repeatForever never repeats. */
-    private breathe(caption: cc.Node): void {
-        cc.tween(caption)
-            .repeatForever(
-                cc
-                    .tween<cc.Node>()
-                    .to(CaptionFeel.breath / 2, { scale: CaptionFeel.breathScale }, { easing: 'sineInOut' })
-                    .to(CaptionFeel.breath / 2, { scale: 1 }, { easing: 'sineInOut' }),
-            )
-            .start();
-    }
-
     private fadeTitle(opacity: number): void {
-        const title = this.title;
-        if (title !== null) {
-            cc.Tween.stopAllByTarget(title);
-            cc.tween(title).to(CaptionFeel.fade, { opacity }).start();
+        if (this.title !== null) {
+            this.titleFade.play(cc.tween(this.title).to(CaptionFeel.fade, { opacity }));
         }
     }
 }

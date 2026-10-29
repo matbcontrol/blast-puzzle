@@ -7,7 +7,7 @@ import { createBlastGame } from './core/game/BlastGameFactory';
 import { SeededRandom } from './core/random/SeededRandom';
 import { MuteButton } from './view/audio/MuteButton';
 import { SoundBank } from './view/audio/SoundBank';
-import { SoundBoard } from './view/audio/SoundBoard';
+import { SoundPlayer } from './view/audio/SoundPlayer';
 import { BoardView } from './view/BoardView';
 import { BoosterPanel } from './view/BoosterPanel';
 import { BoardEffects } from './view/fx/BoardEffects';
@@ -57,7 +57,7 @@ export class GameBootstrap extends cc.Component {
     start(): void {
         const config = parseLevelConfig(this.level.json);
         this.checkScene(config);
-        this.wirePresentation(this.effects, this.sound);
+        this.wireServices();
 
         const seeds = new SeedSequence(seedFromUrl(), config.seed);
         this.controller = new GameController(
@@ -78,13 +78,20 @@ export class GameBootstrap extends cc.Component {
         }
     }
 
-    /** The views get effects and sound by their interfaces, so none of them knows the components behind. */
-    private wirePresentation(effects: BoardEffects, sound: SoundBoard): void {
-        this.board.setPresentation(effects, sound);
+    /**
+     * Plain services reach the views here and nowhere else, each through one setter typed by its interface,
+     * so no view knows the component behind. Until then every view runs on a null object.
+     */
+    private wireServices(): void {
+        const sound: SoundPlayer = this.sound;
+        const effects: BoardEffects = this.effects;
+        this.board.setSound(sound);
+        this.board.setEffects(effects);
         this.boosters.setSound(sound);
         this.result.setSound(sound);
         this.result.setEffects(effects);
-        this.mute.setSound(sound);
+        this.mute.setSound(this.sound);
+        this.effects.setScoreTarget(this.hud);
     }
 
     private checkScene(config: LevelConfig): void {

@@ -1,16 +1,15 @@
 import { Signal } from '../app/Signal';
-import { Timings } from './animation/Timings';
+import { PressFeedback } from './PressFeedback';
+import { shakeX } from './Tweens';
 import { TweenSlot } from './TweenSlot';
 
 const { ccclass, property } = cc._decorator;
 
-/** Scales, px and seconds of a booster button. */
+/** Opacity, px and seconds of a booster button. The press itself feels like every button: PressFeel. */
 export const BoosterButtonFeel = {
-    pressedScale: 0.92,
-    press: 0.05,
-    release: 0.24,
-    selectedScale: 1.08,
     emptyOpacity: 140,
+    /** The selected booster breathes until it fires or is put back. */
+    selected: { peak: 1.1, rest: 1, rise: 0.4, fall: 0.4 },
     rejectOffset: 10,
     reject: 0.3,
 };
@@ -23,22 +22,22 @@ export class BoosterButton extends cc.Component {
     @property(cc.Label)
     chargesLabel: cc.Label = null!;
 
+    @property({ type: PressFeedback, tooltip: 'On this node' })
+    press: PressFeedback = null!;
+
     readonly pressed = new Signal<string>();
 
     private selected = false;
     private restX = 0;
-    private readonly scaling = new TweenSlot();
     private readonly shaking = new TweenSlot();
 
     onLoad(): void {
         this.restX = this.node.x;
-        this.node.on(cc.Node.EventType.TOUCH_START, this.onTouchStart, this);
-        this.node.on(cc.Node.EventType.TOUCH_END, this.onTouchEnd, this);
-        this.node.on(cc.Node.EventType.TOUCH_CANCEL, this.release, this);
+        this.press.pressed.add(() => this.pressed.dispatch(this.boosterId));
     }
 
     onDestroy(): void {
-        this.node.targetOff(this);
+        this.shaking.stop();
         this.pressed.clear();
     }
 
@@ -50,51 +49,13 @@ export class BoosterButton extends cc.Component {
     setSelected(selected: boolean): void {
         if (selected !== this.selected) {
             this.selected = selected;
-            this.release();
+            this.press.setIdle(selected ? BoosterButtonFeel.selected : null);
         }
     }
 
     /** No charges left: a short "no" shake. */
     reject(): void {
-        const feel = BoosterButtonFeel;
-        const x = this.restX;
-        this.node.x = x;
-        this.shaking.play(
-            cc
-                .tween(this.node)
-                .to(feel.reject / 4, { x: x - feel.rejectOffset })
-                .to(feel.reject / 2, { x: x + feel.rejectOffset })
-                .to(feel.reject / 4, { x }),
-        );
-    }
-
-    private onTouchStart(): void {
-        this.scaling.play(
-            cc
-                .tween(this.node)
-                .to(BoosterButtonFeel.press, { scale: BoosterButtonFeel.pressedScale }, { easing: 'quadOut' }),
-        );
-    }
-
-    private onTouchEnd(): void {
-        this.release();
-        this.pressed.dispatch(this.boosterId);
-    }
-
-    /** Springs back to rest, or into the pulse of a selected booster. */
-    private release(): void {
-        const node = this.node;
-        if (!this.selected) {
-            this.scaling.play(cc.tween(node).to(BoosterButtonFeel.release, { scale: 1 }, { easing: 'backOut' }));
-            return;
-        }
-        this.scaling.play(
-            cc.tween(node).repeatForever(
-                cc
-                    .tween<cc.Node>()
-                    .to(Timings.boosterPulse / 2, { scale: BoosterButtonFeel.selectedScale }, { easing: 'sineInOut' })
-                    .to(Timings.boosterPulse / 2, { scale: 1 }, { easing: 'sineInOut' }),
-            ),
-        );
+        this.node.x = this.restX;
+        this.shaking.play(shakeX(this.node, this.restX, BoosterButtonFeel.rejectOffset, BoosterButtonFeel.reject));
     }
 }

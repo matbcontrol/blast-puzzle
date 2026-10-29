@@ -1,8 +1,7 @@
 import { BoosterPresenter } from '../app/GameViews';
 import { Signal } from '../app/Signal';
-import { NoSound } from './animation/Silent';
 import { AimCaption } from './AimCaption';
-import { SoundBoard } from './audio/SoundBoard';
+import { NoSound, SoundPlayer } from './audio/SoundPlayer';
 import { BoosterButton } from './BoosterButton';
 import { Texts } from './Texts';
 
@@ -19,9 +18,9 @@ export class BoosterPanel extends cc.Component implements BoosterPresenter {
     readonly boosterPressed = new Signal<string>();
 
     private selected: string | null = null;
-    private sound: SoundBoard = new NoSound();
+    private sound: SoundPlayer = new NoSound();
 
-    setSound(sound: SoundBoard): void {
+    setSound(sound: SoundPlayer): void {
         this.sound = sound;
     }
 
@@ -41,7 +40,7 @@ export class BoosterPanel extends cc.Component implements BoosterPresenter {
     }
 
     /** Only picking a booster sounds: the selection also clears when a booster fires, under its own sound. */
-    select(id: string | null): void {
+    selectBooster(id: string | null): void {
         if (id !== null && id !== this.selected) {
             this.sound.play('select');
         }
@@ -50,7 +49,7 @@ export class BoosterPanel extends cc.Component implements BoosterPresenter {
         this.caption.show(id === null ? null : Texts.aimCaption(id));
     }
 
-    rejectPress(id: string): void {
+    rejectBooster(id: string): void {
         const button = this.find(id);
         if (button !== null) {
             this.sound.play('reject');
